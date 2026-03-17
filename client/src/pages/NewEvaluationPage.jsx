@@ -3,17 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { getResumes, getJobs, createEvaluation } from '../api/services';
 import ModernSelect from '../components/ModernSelect';
-
-const DEFAULT_WEIGHTS = { skills: 35, experience: 25, education: 15, keywords: 15, formatting: 10 };
+import ScoringWeights, { DEFAULT_WEIGHTS } from '../components/ScoringWeights';
 
 export default function NewEvaluationPage() {
   const [resumes, setResumes] = useState([]);
-  const [jobs, setJobs] = useState([]);
+  const [jobs, setJobs]       = useState([]);
   const [resumeId, setResumeId] = useState('');
-  const [jobId, setJobId] = useState('');
-  const [weights, setWeights] = useState({ ...DEFAULT_WEIGHTS });
+  const [jobId,    setJobId]    = useState('');
   const [customWeights, setCustomWeights] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [weights,  setWeights]  = useState({ ...DEFAULT_WEIGHTS });
+  const [loading,  setLoading]  = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -24,6 +23,12 @@ export default function NewEvaluationPage() {
   }, []);
 
   const totalWeight = Object.values(weights).reduce((a, b) => a + b, 0);
+
+  const updateWeight = (key, rawValue) => {
+    const parsed = Number.parseInt(rawValue, 10);
+    const nextValue = Number.isNaN(parsed) ? 0 : Math.min(100, Math.max(0, parsed));
+    setWeights((prev) => ({ ...prev, [key]: nextValue }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -127,12 +132,36 @@ export default function NewEvaluationPage() {
                       max="100"
                       className="flex-1 accent-purple-500"
                       value={val}
-                      onChange={(e) =>
-                        setWeights({ ...weights, [key]: parseInt(e.target.value) || 0 })
-                      }
+                      onChange={(e) => updateWeight(key, e.target.value)}
                     />
-                    <div className="w-12 text-right text-sm font-semibold text-white bg-black/40 py-1 rounded-md border border-white/5">
-                      {val}%
+                    <div className="relative w-16 group/value">
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={val}
+                        onChange={(e) => updateWeight(key, e.target.value)}
+                        className="no-spinner w-full h-8 pr-6 text-center text-sm font-semibold text-white bg-black/40 rounded-md border border-white/10 focus:border-purple-400 focus:ring-1 focus:ring-purple-400 outline-none transition-all"
+                      />
+                      <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[10px] text-gray-300">%</span>
+                      <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col gap-px opacity-0 group-hover/value:opacity-100 focus-within:opacity-100 transition-opacity">
+                        <button
+                          type="button"
+                          onClick={() => updateWeight(key, val + 1)}
+                          className="h-3 w-3 rounded-[3px] bg-white/10 text-[7px] leading-none text-purple-200 hover:bg-purple-500/30"
+                          aria-label={`Increase ${key} weight`}
+                        >
+                          ▲
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateWeight(key, val - 1)}
+                          className="h-3 w-3 rounded-[3px] bg-white/10 text-[7px] leading-none text-purple-200 hover:bg-purple-500/30"
+                          aria-label={`Decrease ${key} weight`}
+                        >
+                          ▼
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}

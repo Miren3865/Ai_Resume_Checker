@@ -108,7 +108,7 @@ export default function EvaluationsPage() {
                           View
                         </Link>
                         <button onClick={() => handleDelete(ev._id)} className="btn-danger text-xs px-3 py-1.5">
-                          Del
+                          Delete
                         </button>
                       </div>
                     </td>

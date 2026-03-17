@@ -1,5 +1,19 @@
+import { createPortal } from 'react-dom';
+import { useEffect } from 'react';
+
 export default function ConfirmModal({ message, subMessage, onConfirm, onCancel }) {
-  return (
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        onCancel();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onCancel]);
+
+  const modalContent = (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(2,2,18,0.85)', backdropFilter: 'blur(8px)' }}
@@ -77,4 +91,10 @@ export default function ConfirmModal({ message, subMessage, onConfirm, onCancel 
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') {
+    return null;
+  }
+
+  return createPortal(modalContent, document.body);
 }

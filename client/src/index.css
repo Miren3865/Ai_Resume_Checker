@@ -110,7 +110,7 @@
   .btn-danger {
     @apply inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm
            text-white transition-all duration-200
-           disabled:opacity-40 disabled:cursor-not-allowed select-none;
+           disabled:opacity-40 disabled:cursor-not-allowed select-none outline-none;
     background: linear-gradient(135deg, #ef4444 0%, #f43f5e 100%);
     box-shadow: 0 0 16px rgba(244,63,94,.28);
     position: relative;
@@ -119,6 +119,10 @@
   .btn-danger:hover:not(:disabled) {
     box-shadow: 0 0 30px rgba(244,63,94,.55), 0 0 60px rgba(239,68,68,.18);
     transform: translateY(-1px) scale(1.015);
+  }
+  .btn-danger:focus-visible:not(:disabled) {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(244,63,94,.25), 0 0 30px rgba(244,63,94,.45);
   }
 
   /* ── Card ── */
@@ -267,6 +271,16 @@
 
 .main-enter {
   animation: mainIn 0.72s var(--ease-fluid) both;
+}
+
+.no-spinner::-webkit-outer-spin-button,
+.no-spinner::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.no-spinner {
+  -moz-appearance: textfield;
 }
 
 .auth-page {
