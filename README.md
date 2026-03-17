@@ -165,8 +165,3 @@ Open [http://localhost:3000](http://localhost:3000)
 - Input sanitization via express-validator
 
 ---
-
-## License
-
-MIT
-"# Ai_Resume_Checker" 
