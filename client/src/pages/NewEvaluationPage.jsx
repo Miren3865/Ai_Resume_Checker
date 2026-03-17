@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { getResumes, getJobs, createEvaluation } from '../api/services';
+import ModernSelect from '../components/ModernSelect';
 
 const DEFAULT_WEIGHTS = { skills: 35, experience: 25, education: 15, keywords: 15, formatting: 10 };
 
@@ -59,55 +60,35 @@ export default function NewEvaluationPage() {
         <div className="lg:col-span-7 space-y-6">
           <div className="card space-y-6 border border-purple-500/20 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
             <div>
-              <label className="text-xs font-semibold uppercase tracking-widest text-purple-300 mb-2 block">
+              <label className="text-xs font-semibold uppercase tracking-widest text-purple-300 mb-3 flex items-center gap-2 block">
+                <span className="w-1.5 h-1.5 rounded-full bg-purple-400 inline-block" style={{ boxShadow: '0 0 7px 2px rgba(168,85,247,0.7)' }} />
                 Select Resume *
               </label>
-              <div className="relative">
-                <select 
-                  className="w-full bg-black/40 border border-white/10 rounded-xl text-white px-4 py-3.5 appearance-none focus:outline-none focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20 transition-all cursor-pointer"
-                  value={resumeId} 
-                  onChange={(e) => setResumeId(e.target.value)} 
-                  required
-                >
-                  <option value="" className="bg-gray-900 text-gray-400">— Choose a resume —</option>
-                  {resumes.map((r) => (
-                    <option key={r._id} value={r._id} className="bg-gray-900 text-white py-2">
-                      {r.candidateName} {r.email ? `(${r.email})` : ''}
-                    </option>
-                  ))}
-                </select>
-                <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-purple-400">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="6 9 12 15 18 9"></polyline>
-                  </svg>
-                </div>
-              </div>
+              <ModernSelect
+                value={resumeId}
+                onChange={setResumeId}
+                placeholder="Choose a candidate resume"
+                accentColor="purple"
+                options={resumes.map((r) => ({ value: r._id, label: r.candidateName }))}
+              />
             </div>
 
             <div>
-              <label className="text-xs font-semibold uppercase tracking-widest text-blue-300 mb-2 block mt-6">
+              <label className="text-xs font-semibold uppercase tracking-widest text-blue-300 mt-6 mb-3 flex items-center gap-2 block">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block" style={{ boxShadow: '0 0 7px 2px rgba(59,130,246,0.7)' }} />
                 Select Job Description *
               </label>
-              <div className="relative">
-                <select 
-                  className="w-full bg-black/40 border border-white/10 rounded-xl text-white px-4 py-3.5 appearance-none focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all cursor-pointer"
-                  value={jobId} 
-                  onChange={(e) => setJobId(e.target.value)} 
-                  required
-                >
-                  <option value="" className="bg-gray-900 text-gray-400">— Choose a job —</option>
-                  {jobs.map((j) => (
-                    <option key={j._id} value={j._id} className="bg-gray-900 text-white py-2">
-                      {j.jobTitle} {j.company ? `@ ${j.company}` : ''}
-                    </option>
-                  ))}
-                </select>
-                <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-blue-400">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="6 9 12 15 18 9"></polyline>
-                  </svg>
-                </div>
-              </div>
+              <ModernSelect
+                value={jobId}
+                onChange={setJobId}
+                placeholder="Choose a job description"
+                accentColor="blue"
+                options={jobs.map((j) => ({
+                  value: j._id,
+                  label: j.jobTitle,
+                  sub: j.company ? `@ ${j.company}` : undefined,
+                }))}
+              />
             </div>
           </div>
         </div>

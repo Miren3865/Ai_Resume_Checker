@@ -195,7 +195,6 @@ export default function ResumesPage() {
               <div key={r._id} className="flex items-center justify-between py-4 flex-wrap gap-3">
                 <div>
                   <p className="font-semibold text-gray-900">{r.candidateName}</p>
-                  <p className="text-sm text-gray-500">{r.email || 'No email'}</p>
                   <div className="flex flex-wrap gap-1 mt-1">
                     {(r.skills || []).slice(0, 5).map((s) => (
                       <span key={s} className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">
