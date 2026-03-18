@@ -1,6 +1,8 @@
 const { validationResult } = require('express-validator');
 const JobDescription = require('../models/JobDescription');
 
+const isAdmin = (req) => req.user?.role === 'admin';
+
 // POST /api/jobs
 const createJob = async (req, res, next) => {
   try {
@@ -23,6 +25,7 @@ const getAllJobs = async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const filter = {};
+    if (!isAdmin(req)) filter.createdBy = req.user._id;
     if (req.query.search) {
       filter.$or = [
         { jobTitle: { $regex: req.query.search, $options: 'i' } },
@@ -50,7 +53,10 @@ const getAllJobs = async (req, res, next) => {
 // GET /api/jobs/:id
 const getJobById = async (req, res, next) => {
   try {
-    const job = await JobDescription.findById(req.params.id);
+    const filter = { _id: req.params.id };
+    if (!isAdmin(req)) filter.createdBy = req.user._id;
+
+    const job = await JobDescription.findOne(filter);
     if (!job) {
       return res.status(404).json({ success: false, message: 'Job description not found' });
     }
@@ -63,7 +69,10 @@ const getJobById = async (req, res, next) => {
 // PUT /api/jobs/:id
 const updateJob = async (req, res, next) => {
   try {
-    const job = await JobDescription.findByIdAndUpdate(req.params.id, req.body, {
+    const filter = { _id: req.params.id };
+    if (!isAdmin(req)) filter.createdBy = req.user._id;
+
+    const job = await JobDescription.findOneAndUpdate(filter, req.body, {
       new: true,
       runValidators: true,
     });
@@ -79,7 +88,10 @@ const updateJob = async (req, res, next) => {
 // DELETE /api/jobs/:id
 const deleteJob = async (req, res, next) => {
   try {
-    const job = await JobDescription.findById(req.params.id);
+    const filter = { _id: req.params.id };
+    if (!isAdmin(req)) filter.createdBy = req.user._id;
+
+    const job = await JobDescription.findOne(filter);
     if (!job) {
       return res.status(404).json({ success: false, message: 'Job not found' });
     }
@@ -90,4 +102,22 @@ const deleteJob = async (req, res, next) => {
   }
 };
 
-module.exports = { createJob, getAllJobs, getJobById, updateJob, deleteJob };
+// DELETE /api/jobs
+const deleteAllJobs = async (req, res, next) => {
+  try {
+    const filter = {};
+    if (!isAdmin(req)) filter.createdBy = req.user._id;
+
+    const result = await JobDescription.deleteMany(filter);
+
+    res.json({
+      success: true,
+      message: 'All jobs deleted',
+      deletedCount: result.deletedCount || 0,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { createJob, getAllJobs, getJobById, updateJob, deleteJob, deleteAllJobs };

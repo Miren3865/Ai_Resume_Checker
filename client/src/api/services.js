@@ -10,6 +10,7 @@ export const uploadResume = (formData) =>
 export const getResumes = (params) => api.get('/resumes', { params });
 export const getResume = (id) => api.get(`/resumes/${id}`);
 export const deleteResume = (id) => api.delete(`/resumes/${id}`);
+export const deleteAllResumes = () => api.delete('/resumes');
 export const getResumeFile = (id) => api.get(`/resumes/${id}/file`, { responseType: 'blob' });
 
 // Jobs
@@ -18,11 +19,13 @@ export const getJobs = (params) => api.get('/jobs', { params });
 export const getJob = (id) => api.get(`/jobs/${id}`);
 export const updateJob = (id, data) => api.put(`/jobs/${id}`, data);
 export const deleteJob = (id) => api.delete(`/jobs/${id}`);
+export const deleteAllJobs = () => api.delete('/jobs');
 
 // Evaluations
 export const createEvaluation = (data) => api.post('/evaluations', data);
 export const getEvaluations = (params) => api.get('/evaluations', { params });
 export const getEvaluation = (id) => api.get(`/evaluations/${id}`);
 export const deleteEvaluation = (id) => api.delete(`/evaluations/${id}`);
+export const deleteAllEvaluations = () => api.delete('/evaluations');
 export const resumeBattle = (data) => api.post('/evaluations/battle', data);
 export const getDashboardStats = () => api.get('/evaluations/stats/dashboard');

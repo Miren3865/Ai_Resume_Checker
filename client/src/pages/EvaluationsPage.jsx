@@ -1,15 +1,23 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { getEvaluations, deleteEvaluation } from '../api/services';
+import { getEvaluations, deleteEvaluation, deleteAllEvaluations } from '../api/services';
 import ConfirmModal from '../components/ConfirmModal';
 
 const GRADE_COLOR = { 'A+': '#22c55e', A: '#4ade80', B: '#f59e0b', C: '#f97316', 'Needs Improvement': '#ef4444' };
 
+const formatDateTime = (value) => new Date(value).toLocaleString([], {
+  year: 'numeric',
+  month: 'numeric',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+});
+
 export default function EvaluationsPage() {
   const [evaluations, setEvaluations] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [confirmDelete, setConfirmDelete] = useState(null); // { id }
+  const [confirmDelete, setConfirmDelete] = useState(null); // { mode: 'single', id } | { mode: 'all', count }
 
   const fetchEvals = () => {
     setLoading(true);
@@ -22,18 +30,28 @@ export default function EvaluationsPage() {
   useEffect(() => { fetchEvals(); }, []);
 
   const handleDelete = (id) => {
-    setConfirmDelete({ id });
+    setConfirmDelete({ mode: 'single', id });
+  };
+
+  const handleDeleteAll = () => {
+    setConfirmDelete({ mode: 'all', count: evaluations.length });
   };
 
   const doDelete = async () => {
-    const { id } = confirmDelete;
+    const target = confirmDelete;
     setConfirmDelete(null);
     try {
-      await deleteEvaluation(id);
-      toast.success('Evaluation deleted');
+      if (target.mode === 'all') {
+        const res = await deleteAllEvaluations();
+        const deletedCount = res.data?.deletedCount ?? 0;
+        toast.success(`${deletedCount} ${deletedCount === 1 ? 'evaluation' : 'evaluations'} deleted`);
+      } else {
+        await deleteEvaluation(target.id);
+        toast.success('Evaluation deleted');
+      }
       fetchEvals();
     } catch {
-      toast.error('Failed to delete');
+      toast.error(target.mode === 'all' ? 'Failed to delete all evaluations' : 'Failed to delete');
     }
   };
 
@@ -44,7 +62,18 @@ export default function EvaluationsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Evaluations</h1>
           <p className="text-gray-500 text-sm mt-1">Resume vs job match analysis results</p>
         </div>
-        <Link to="/evaluations/new" className="btn-primary">🎯 New Evaluation</Link>
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          <button
+            type="button"
+            className="btn-danger text-xs px-3 py-1.5"
+            onClick={handleDeleteAll}
+            disabled={loading || evaluations.length === 0}
+            title="Delete all evaluations"
+          >
+            Delete All
+          </button>
+          <Link to="/evaluations/new" className="btn-primary">🎯 New Evaluation</Link>
+        </div>
       </div>
 
       <div className="card">
@@ -100,7 +129,7 @@ export default function EvaluationsPage() {
                     <td className="py-3 text-center text-gray-600">{ev.skillsCoverage}%</td>
                     <td className="py-3 text-center text-gray-600">{ev.keywordScore}%</td>
                     <td className="py-3 text-gray-400 text-xs whitespace-nowrap">
-                      {new Date(ev.createdAt).toLocaleDateString()}
+                      {formatDateTime(ev.createdAt)}
                     </td>
                     <td className="py-3">
                       <div className="flex gap-2 justify-end">
@@ -122,8 +151,10 @@ export default function EvaluationsPage() {
 
       {confirmDelete && (
         <ConfirmModal
-          message="Delete this evaluation?"
-          subMessage="This action cannot be undone."
+          message={confirmDelete.mode === 'all' ? 'Delete all evaluations?' : 'Delete this evaluation?'}
+          subMessage={confirmDelete.mode === 'all'
+            ? `This will permanently delete ${confirmDelete.count} ${confirmDelete.count === 1 ? 'evaluation' : 'evaluations'}. This action cannot be undone.`
+            : 'This action cannot be undone.'}
           onConfirm={doDelete}
           onCancel={() => setConfirmDelete(null)}
         />

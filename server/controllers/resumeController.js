@@ -11,6 +11,8 @@ const {
   extractProjects,
 } = require('../utils/resumeParser');
 
+const isAdmin = (req) => req.user?.role === 'admin';
+
 // POST /api/resumes/upload
 const uploadResume = async (req, res, next) => {
   try {
@@ -73,7 +75,7 @@ const getAllResumes = async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const filter = {};
-    if (req.user?.role === 'candidate') filter.uploadedBy = req.user._id;
+    if (!isAdmin(req)) filter.uploadedBy = req.user._id;
     if (req.query.search) {
       filter.$or = [
         { candidateName: { $regex: req.query.search, $options: 'i' } },
@@ -99,7 +101,10 @@ const getAllResumes = async (req, res, next) => {
 // GET /api/resumes/:id
 const getResumeById = async (req, res, next) => {
   try {
-    const resume = await Resume.findById(req.params.id);
+    const filter = { _id: req.params.id };
+    if (!isAdmin(req)) filter.uploadedBy = req.user._id;
+
+    const resume = await Resume.findOne(filter);
     if (!resume) {
       return res.status(404).json({ success: false, message: 'Resume not found' });
     }
@@ -112,13 +117,14 @@ const getResumeById = async (req, res, next) => {
 // DELETE /api/resumes/:id
 const deleteResume = async (req, res, next) => {
   try {
-    const resume = await Resume.findById(req.params.id);
+    const filter = { _id: req.params.id };
+    if (!isAdmin(req)) filter.uploadedBy = req.user._id;
+
+    const resume = await Resume.findOne(filter);
     if (!resume) {
       return res.status(404).json({ success: false, message: 'Resume not found' });
     }
-    if (req.user.role !== 'admin' && resume.uploadedBy?.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, message: 'Not authorized to delete this resume' });
-    }
+
     // Clean up stored file if it exists
     if (resume.storedFileName) {
       const filePath = path.join(__dirname, '../../uploads', resume.storedFileName);
@@ -131,10 +137,43 @@ const deleteResume = async (req, res, next) => {
   }
 };
 
+// DELETE /api/resumes
+const deleteAllResumes = async (req, res, next) => {
+  try {
+    const filter = {};
+    if (!isAdmin(req)) filter.uploadedBy = req.user._id;
+
+    const resumes = await Resume.find(filter).select('storedFileName');
+    if (resumes.length === 0) {
+      return res.json({ success: true, message: 'No resumes to delete', deletedCount: 0 });
+    }
+
+    for (const resume of resumes) {
+      if (resume.storedFileName) {
+        const filePath = path.join(__dirname, '../../uploads', resume.storedFileName);
+        fs.unlink(filePath, () => {});
+      }
+    }
+
+    const result = await Resume.deleteMany(filter);
+
+    res.json({
+      success: true,
+      message: 'All resumes deleted',
+      deletedCount: result.deletedCount || 0,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // GET /api/resumes/:id/file
 const serveResumeFile = async (req, res, next) => {
   try {
-    const resume = await Resume.findById(req.params.id);
+    const filter = { _id: req.params.id };
+    if (!isAdmin(req)) filter.uploadedBy = req.user._id;
+
+    const resume = await Resume.findOne(filter);
     if (!resume) {
       return res.status(404).json({ success: false, message: 'Resume not found' });
     }
@@ -153,4 +192,11 @@ const serveResumeFile = async (req, res, next) => {
   }
 };
 
-module.exports = { uploadResume, getAllResumes, getResumeById, deleteResume, serveResumeFile };
+module.exports = {
+  uploadResume,
+  getAllResumes,
+  getResumeById,
+  deleteResume,
+  deleteAllResumes,
+  serveResumeFile,
+};

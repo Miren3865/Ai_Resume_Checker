@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { register } from '../api/services';
 import { useAuth } from '../context/AuthContext';
@@ -9,6 +9,14 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const { loginUser } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const prefillEmail = location.state?.prefillEmail;
+    if (prefillEmail) {
+      setForm((prev) => ({ ...prev, email: prefillEmail }));
+    }
+  }, [location.state]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

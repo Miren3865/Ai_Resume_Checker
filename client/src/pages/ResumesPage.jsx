@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { toast } from 'react-toastify';
-import { getResumes, uploadResume, deleteResume, getResumeFile } from '../api/services';
+import { getResumes, uploadResume, deleteResume, deleteAllResumes, getResumeFile } from '../api/services';
 import ConfirmModal from '../components/ConfirmModal';
 
 export default function ResumesPage() {
@@ -18,7 +18,7 @@ export default function ResumesPage() {
   const [pdfModal, setPdfModal] = useState(null); // resume object
   const [pdfUrl, setPdfUrl] = useState(null);
   const [pdfLoading, setPdfLoading] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(null); // { id, name }
+  const [confirmDelete, setConfirmDelete] = useState(null); // { mode: 'single', id, name } | { mode: 'all', count }
   const [viewingResume, setViewingResume] = useState(null); // parsed data modal
 
   const fetchResumes = (q = '') => {
@@ -56,18 +56,28 @@ export default function ResumesPage() {
   };
 
   const handleDelete = (id, name) => {
-    setConfirmDelete({ id, name });
+    setConfirmDelete({ mode: 'single', id, name });
+  };
+
+  const handleDeleteAll = () => {
+    setConfirmDelete({ mode: 'all', count: resumes.length });
   };
 
   const doDelete = async () => {
-    const { id } = confirmDelete;
+    const target = confirmDelete;
     setConfirmDelete(null);
     try {
-      await deleteResume(id);
-      toast.success('Resume deleted');
+      if (target.mode === 'all') {
+        const res = await deleteAllResumes();
+        const deletedCount = res.data?.deletedCount ?? 0;
+        toast.success(`${deletedCount} ${deletedCount === 1 ? 'resume' : 'resumes'} deleted`);
+      } else {
+        await deleteResume(target.id);
+        toast.success('Resume deleted');
+      }
       fetchResumes(search);
     } catch {
-      toast.error('Failed to delete resume');
+      toast.error(target.mode === 'all' ? 'Failed to delete all resumes' : 'Failed to delete resume');
     }
   };
 
@@ -213,12 +223,23 @@ export default function ResumesPage() {
       <div className="card">
         <div className="flex justify-between items-center mb-4 flex-wrap gap-3">
           <h2 className="text-lg font-semibold text-gray-900">All Resumes ({resumes.length})</h2>
-          <input
-            className="input max-w-xs"
-            placeholder="Search by name or email…"
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); fetchResumes(e.target.value); }}
-          />
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            <input
+              className="input max-w-xs"
+              placeholder="Search by name or email…"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); fetchResumes(e.target.value); }}
+            />
+            <button
+              type="button"
+              className="btn-danger text-xs px-3 py-1.5"
+              onClick={handleDeleteAll}
+              disabled={loading || resumes.length === 0}
+              title="Delete all resumes"
+            >
+              Delete All
+            </button>
+          </div>
         </div>
 
         {loading ? (
@@ -452,8 +473,10 @@ export default function ResumesPage() {
 
       {confirmDelete && (
         <ConfirmModal
-          message={`Delete resume for ${confirmDelete.name}?`}
-          subMessage="This action cannot be undone."
+          message={confirmDelete.mode === 'all' ? 'Delete all resumes?' : `Delete resume for ${confirmDelete.name}?`}
+          subMessage={confirmDelete.mode === 'all'
+            ? `This will permanently delete ${confirmDelete.count} ${confirmDelete.count === 1 ? 'resume' : 'resumes'}. This action cannot be undone.`
+            : 'This action cannot be undone.'}
           onConfirm={doDelete}
           onCancel={() => setConfirmDelete(null)}
         />

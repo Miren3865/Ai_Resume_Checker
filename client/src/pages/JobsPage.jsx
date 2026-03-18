@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { getJobs, createJob, updateJob, deleteJob, getJob } from '../api/services';
+import { getJobs, createJob, updateJob, deleteJob, deleteAllJobs, getJob } from '../api/services';
 import ConfirmModal from '../components/ConfirmModal';
+import ModernSelect from '../components/ModernSelect';
 
 const EMPTY_JOB = {
   jobTitle: '',
@@ -17,6 +18,24 @@ const EMPTY_JOB = {
   jobDescriptionText: '',
 };
 
+const EMPLOYMENT_TYPE_OPTIONS = ['Full-time', 'Part-time', 'Contract', 'Internship', 'Freelance'].map((label) => ({
+  value: label,
+  label,
+}));
+
+const EXPERIENCE_LEVEL_OPTIONS = ['Entry', 'Mid', 'Senior', 'Lead', 'Manager', 'Director'].map((label) => ({
+  value: label,
+  label,
+}));
+
+const formatDateTime = (value) => new Date(value).toLocaleString([], {
+  year: 'numeric',
+  month: 'numeric',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+});
+
 export default function JobsPage() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -27,7 +46,7 @@ export default function JobsPage() {
   const [form, setForm] = useState(EMPTY_JOB);
   const [editingId, setEditingId] = useState(null);
   const [search, setSearch] = useState('');
-  const [confirmDelete, setConfirmDelete] = useState(null); // { id, title }
+  const [confirmDelete, setConfirmDelete] = useState(null); // { mode: 'single', id, title } | { mode: 'all', count }
 
   const fetchJobs = (q = '') => {
     setLoading(true);
@@ -114,18 +133,28 @@ export default function JobsPage() {
   };
 
   const handleDelete = (id, title) => {
-    setConfirmDelete({ id, title });
+    setConfirmDelete({ mode: 'single', id, title });
+  };
+
+  const handleDeleteAll = () => {
+    setConfirmDelete({ mode: 'all', count: jobs.length });
   };
 
   const doDelete = async () => {
-    const { id } = confirmDelete;
+    const target = confirmDelete;
     setConfirmDelete(null);
     try {
-      await deleteJob(id);
-      toast.success('Job deleted');
+      if (target.mode === 'all') {
+        const res = await deleteAllJobs();
+        const deletedCount = res.data?.deletedCount ?? 0;
+        toast.success(`${deletedCount} ${deletedCount === 1 ? 'job' : 'jobs'} deleted`);
+      } else {
+        await deleteJob(target.id);
+        toast.success('Job deleted');
+      }
       fetchJobs(search);
     } catch {
-      toast.error('Failed to delete job');
+      toast.error(target.mode === 'all' ? 'Failed to delete all jobs' : 'Failed to delete job');
     }
   };
 
@@ -176,19 +205,23 @@ export default function JobsPage() {
               </div>
               <div>
                 <label className="label">Employment Type</label>
-                <select className="input" value={form.employmentType} onChange={(e) => setForm({ ...form, employmentType: e.target.value })}>
-                  {['Full-time', 'Part-time', 'Contract', 'Internship', 'Freelance'].map((t) => (
-                    <option key={t}>{t}</option>
-                  ))}
-                </select>
+                <ModernSelect
+                  value={form.employmentType}
+                  onChange={(employmentType) => setForm({ ...form, employmentType })}
+                  options={EMPLOYMENT_TYPE_OPTIONS}
+                  placeholder="Choose employment type"
+                  accentColor="purple"
+                />
               </div>
               <div>
                 <label className="label">Experience Level</label>
-                <select className="input" value={form.experienceLevel} onChange={(e) => setForm({ ...form, experienceLevel: e.target.value })}>
-                  {['Entry', 'Mid', 'Senior', 'Lead', 'Manager', 'Director'].map((l) => (
-                    <option key={l}>{l}</option>
-                  ))}
-                </select>
+                <ModernSelect
+                  value={form.experienceLevel}
+                  onChange={(experienceLevel) => setForm({ ...form, experienceLevel })}
+                  options={EXPERIENCE_LEVEL_OPTIONS}
+                  placeholder="Choose experience level"
+                  accentColor="blue"
+                />
               </div>
             </div>
             <div>
@@ -247,12 +280,23 @@ export default function JobsPage() {
       <div className="card">
         <div className="flex justify-between items-center mb-4 flex-wrap gap-3">
           <h2 className="text-lg font-semibold text-gray-900">All Jobs ({jobs.length})</h2>
-          <input
-            className="input max-w-xs"
-            placeholder="Search jobs…"
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); fetchJobs(e.target.value); }}
-          />
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            <input
+              className="input max-w-xs"
+              placeholder="Search jobs…"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); fetchJobs(e.target.value); }}
+            />
+            <button
+              type="button"
+              className="btn-danger text-xs px-3 py-1.5"
+              onClick={handleDeleteAll}
+              disabled={loading || jobs.length === 0}
+              title="Delete all job descriptions"
+            >
+              Delete All
+            </button>
+          </div>
         </div>
         {loading ? (
           <div className="flex justify-center py-10"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" /></div>
@@ -272,7 +316,7 @@ export default function JobsPage() {
                   </div>
                 </div>
                 <div className="flex gap-2 items-center">
-                  <span className="text-xs text-gray-400">{new Date(j.createdAt).toLocaleDateString()}</span>
+                  <span className="text-xs text-gray-400">{formatDateTime(j.createdAt)}</span>
                   <button
                     onClick={() => handleView(j._id)}
                     className="btn-secondary text-xs px-3 py-1.5"
@@ -295,8 +339,10 @@ export default function JobsPage() {
 
       {confirmDelete && (
         <ConfirmModal
-          message={`Delete "${confirmDelete.title}"?`}
-          subMessage="This action cannot be undone."
+          message={confirmDelete.mode === 'all' ? 'Delete all jobs?' : `Delete "${confirmDelete.title}"?`}
+          subMessage={confirmDelete.mode === 'all'
+            ? `This will permanently delete ${confirmDelete.count} ${confirmDelete.count === 1 ? 'job' : 'jobs'}. This action cannot be undone.`
+            : 'This action cannot be undone.'}
           onConfirm={doDelete}
           onCancel={() => setConfirmDelete(null)}
         />

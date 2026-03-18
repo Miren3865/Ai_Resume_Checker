@@ -6,6 +6,8 @@ const {
   extractContactInfo,
 } = require('../utils/resumeParser');
 
+const isAdmin = (req) => req.user?.role === 'admin';
+
 // POST /api/evaluations
 const createEvaluation = async (req, res, next) => {
   try {
@@ -15,9 +17,17 @@ const createEvaluation = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'resumeId and jobId are required' });
     }
 
+    const resumeFilter = { _id: resumeId };
+    const jobFilter = { _id: jobId };
+
+    if (!isAdmin(req)) {
+      resumeFilter.uploadedBy = req.user._id;
+      jobFilter.createdBy = req.user._id;
+    }
+
     const [resume, job] = await Promise.all([
-      Resume.findById(resumeId),
-      JobDescription.findById(jobId),
+      Resume.findOne(resumeFilter),
+      JobDescription.findOne(jobFilter),
     ]);
 
     if (!resume) return res.status(404).json({ success: false, message: 'Resume not found' });
@@ -77,6 +87,7 @@ const getAllEvaluations = async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const filter = {};
+    if (!isAdmin(req)) filter.evaluatedBy = req.user._id;
     if (req.query.resumeId) filter.resumeId = req.query.resumeId;
     if (req.query.jobId) filter.jobId = req.query.jobId;
 
@@ -103,7 +114,10 @@ const getAllEvaluations = async (req, res, next) => {
 // GET /api/evaluations/:id
 const getEvaluationById = async (req, res, next) => {
   try {
-    const evaluation = await Evaluation.findById(req.params.id)
+    const filter = { _id: req.params.id };
+    if (!isAdmin(req)) filter.evaluatedBy = req.user._id;
+
+    const evaluation = await Evaluation.findOne(filter)
       .populate('resumeId', 'candidateName email skills parsedSections')
       .populate('jobId', 'jobTitle company requiredSkills preferredSkills keywords experienceLevel');
 
@@ -119,10 +133,31 @@ const getEvaluationById = async (req, res, next) => {
 // DELETE /api/evaluations/:id
 const deleteEvaluation = async (req, res, next) => {
   try {
-    const ev = await Evaluation.findById(req.params.id);
+    const filter = { _id: req.params.id };
+    if (!isAdmin(req)) filter.evaluatedBy = req.user._id;
+
+    const ev = await Evaluation.findOne(filter);
     if (!ev) return res.status(404).json({ success: false, message: 'Evaluation not found' });
     await ev.deleteOne();
     res.json({ success: true, message: 'Evaluation deleted' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// DELETE /api/evaluations
+const deleteAllEvaluations = async (req, res, next) => {
+  try {
+    const filter = {};
+    if (!isAdmin(req)) filter.evaluatedBy = req.user._id;
+
+    const result = await Evaluation.deleteMany(filter);
+
+    res.json({
+      success: true,
+      message: 'All evaluations deleted',
+      deletedCount: result.deletedCount || 0,
+    });
   } catch (err) {
     next(err);
   }
@@ -140,14 +175,27 @@ const resumeBattle = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'jobId is required' });
     }
 
-    const job = await JobDescription.findById(jobId);
+    const jobFilter = { _id: jobId };
+    if (!isAdmin(req)) jobFilter.createdBy = req.user._id;
+
+    const job = await JobDescription.findOne(jobFilter);
     if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
 
     const scoringWeights = { ...DEFAULT_WEIGHTS, ...(weights || {}) };
 
-    const resumes = await Resume.find({ _id: { $in: resumeIds } });
+    const resumeFilter = { _id: { $in: resumeIds } };
+    if (!isAdmin(req)) resumeFilter.uploadedBy = req.user._id;
+
+    const resumes = await Resume.find(resumeFilter);
     if (resumes.length === 0) {
       return res.status(404).json({ success: false, message: 'No resumes found' });
+    }
+
+    if (resumes.length !== resumeIds.length) {
+      return res.status(403).json({
+        success: false,
+        message: 'One or more selected resumes are not accessible for this user',
+      });
     }
 
     const results = resumes.map((resume) => {
@@ -192,22 +240,28 @@ const resumeBattle = async (req, res, next) => {
 // GET /api/evaluations/stats/dashboard
 const getDashboardStats = async (req, res, next) => {
   try {
+    const resumeFilter = !isAdmin(req) ? { uploadedBy: req.user._id } : {};
+    const jobFilter = !isAdmin(req) ? { createdBy: req.user._id } : {};
+    const evaluationFilter = !isAdmin(req) ? { evaluatedBy: req.user._id } : {};
+
     const [totalResumes, totalJobs, totalEvaluations, recentEvaluations, gradeDistribution] =
       await Promise.all([
-        Resume.countDocuments(),
-        JobDescription.countDocuments(),
-        Evaluation.countDocuments(),
-        Evaluation.find()
+        Resume.countDocuments(resumeFilter),
+        JobDescription.countDocuments(jobFilter),
+        Evaluation.countDocuments(evaluationFilter),
+        Evaluation.find(evaluationFilter)
           .populate('resumeId', 'candidateName')
           .populate('jobId', 'jobTitle company')
           .sort({ createdAt: -1 })
           .limit(5),
         Evaluation.aggregate([
+          ...(isAdmin(req) ? [] : [{ $match: { evaluatedBy: req.user._id } }]),
           { $group: { _id: '$grade', count: { $sum: 1 } } },
         ]),
       ]);
 
     const avgScoreResult = await Evaluation.aggregate([
+      ...(isAdmin(req) ? [] : [{ $match: { evaluatedBy: req.user._id } }]),
       { $group: { _id: null, avg: { $avg: '$matchScore' } } },
     ]);
     const averageScore = avgScoreResult[0] ? Math.round(avgScoreResult[0].avg) : 0;
@@ -233,6 +287,7 @@ module.exports = {
   getAllEvaluations,
   getEvaluationById,
   deleteEvaluation,
+  deleteAllEvaluations,
   resumeBattle,
   getDashboardStats,
 };

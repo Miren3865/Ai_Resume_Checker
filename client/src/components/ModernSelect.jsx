@@ -136,6 +136,7 @@ export default function ModernSelect({
   options     = [],
   placeholder = '— Select an option —',
   accentColor = 'purple',
+  searchable  = false,
   label,
 }) {
   const [open,     setOpen]     = useState(false);
@@ -151,7 +152,7 @@ export default function ModernSelect({
 
   /* ── derived ──────────────────────────────────────────────────────── */
   const selected = options.find((o) => o.value === value) ?? null;
-  const filtered = query.trim()
+  const filtered = searchable && query.trim()
     ? options.filter(
         (o) =>
           o.label.toLowerCase().includes(query.toLowerCase()) ||
@@ -168,9 +169,17 @@ export default function ModernSelect({
   const openDropdown = () => {
     ensureScrollbarCSS();
     measureTrigger();
+    const selectedIdx = options.findIndex((o) => o.value === value);
+    setFocusIdx(selectedIdx >= 0 ? selectedIdx : 0);
     setOpen(true);
   };
-  const closeDropdown = () => { setOpen(false); setQuery(''); setFocusIdx(-1); };
+  const closeDropdown = () => {
+    setOpen(false);
+    setFocusIdx(-1);
+    if (searchable) {
+      setQuery('');
+    }
+  };
   const toggleDropdown = () => (open ? closeDropdown() : openDropdown());
 
   /* ── reposition on scroll / resize while open ─────────────────────── */
@@ -185,11 +194,12 @@ export default function ModernSelect({
     };
   }, [open, measureTrigger]);
 
-  /* ── focus search when opened ─────────────────────────────────────── */
+  /* ── scroll to selected row when opened ───────────────────────────── */
   useEffect(() => {
     if (open) {
-      setTimeout(() => searchRef.current?.focus(), 60);
-      /* scroll to selected item */
+      if (searchable) {
+        setTimeout(() => searchRef.current?.focus(), 60);
+      }
       setTimeout(() => {
         listRef.current
           ?.querySelector('[data-selected="true"]')
@@ -225,18 +235,71 @@ export default function ModernSelect({
     };
   }, [open]);
 
-  /* ── keyboard nav inside search ────────────────────────────────────── */
-  const onSearchKeyDown = (e) => {
+  const onTriggerKeyDown = (e) => {
+    if (!open && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault();
+      openDropdown();
+      return;
+    }
+
+    if (!open || searchable) return;
+
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       setFocusIdx((i) => Math.min(i + 1, filtered.length - 1));
-    } else if (e.key === 'ArrowUp') {
+      return;
+    }
+
+    if (e.key === 'ArrowUp') {
       e.preventDefault();
       setFocusIdx((i) => Math.max(i - 1, 0));
-    } else if (e.key === 'Enter') {
+      return;
+    }
+
+    if (e.key === 'Enter') {
       e.preventDefault();
       const opt = filtered[focusIdx];
-      if (opt) { onChange(opt.value); closeDropdown(); }
+      if (opt) {
+        onChange(opt.value);
+        closeDropdown();
+      }
+      return;
+    }
+
+    if (e.key === 'Escape' || e.key === 'Tab') {
+      closeDropdown();
+    }
+  };
+
+  const onSearchKeyDown = (e) => {
+    if (!searchable) return;
+
+    if (!open) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setFocusIdx((i) => Math.min(i + 1, filtered.length - 1));
+      return;
+    }
+
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setFocusIdx((i) => Math.max(i - 1, 0));
+      return;
+    }
+
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const opt = filtered[focusIdx];
+      if (opt) {
+        onChange(opt.value);
+        closeDropdown();
+      }
+      return;
+    }
+
+    if (e.key === 'Escape' || e.key === 'Tab') {
+      closeDropdown();
     }
   };
 
@@ -286,63 +349,72 @@ export default function ModernSelect({
             background: `radial-gradient(ellipse 80% 50% at 50% 0%, ${ac.ambientGlow} 0%, transparent 70%)`,
           }} />
 
-          {/* ── search bar ──────────────────────────────────── */}
-          <div style={{ position: 'relative', padding: '10px 12px 8px' }}>
-            <Search
-              size={13}
-              style={{
-                position: 'absolute', left: 24,
-                top: '50%', transform: 'translateY(-3px)',
-                color: '#6b7280', pointerEvents: 'none',
-              }}
-            />
-            <input
-              ref={searchRef}
-              type="text"
-              value={query}
-              onChange={(e) => { setQuery(e.target.value); setFocusIdx(-1); }}
-              onKeyDown={onSearchKeyDown}
-              placeholder="Search…"
-              style={{
-                width: '100%',
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.10)',
-                borderRadius: 10,
-                padding: '8px 32px 8px 28px',
-                fontSize: 13,
-                color: '#fff',
-                outline: 'none',
-                caretColor: ac.caret,
-                transition: 'border-color .15s, box-shadow .15s',
-                boxSizing: 'border-box',
-              }}
-              onFocus={(e) => {
-                e.target.style.borderColor = ac.searchFocusBorder;
-                e.target.style.boxShadow   = ac.searchFocusRing;
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = 'rgba(255,255,255,0.10)';
-                e.target.style.boxShadow   = 'none';
-              }}
-            />
-            {query && (
-              <button
-                type="button"
-                onClick={() => { setQuery(''); searchRef.current?.focus(); }}
-                style={{
-                  position: 'absolute', right: 22,
-                  top: '50%', transform: 'translateY(-3px)',
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  color: '#6b7280', display: 'flex', alignItems: 'center',
-                }}
-              >
-                <X size={12} />
-              </button>
-            )}
-          </div>
+          {searchable && (
+            <>
+              <div style={{ position: 'relative', padding: '10px 12px 8px' }}>
+                <Search
+                  size={13}
+                  style={{
+                    position: 'absolute', left: 24,
+                    top: '50%', transform: 'translateY(-3px)',
+                    color: '#6b7280', pointerEvents: 'none',
+                  }}
+                />
+                <input
+                  ref={searchRef}
+                  type="text"
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setFocusIdx(0);
+                  }}
+                  onKeyDown={onSearchKeyDown}
+                  placeholder="Search..."
+                  style={{
+                    width: '100%',
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.10)',
+                    borderRadius: 10,
+                    padding: '8px 32px 8px 28px',
+                    fontSize: 13,
+                    color: '#fff',
+                    outline: 'none',
+                    caretColor: ac.caret,
+                    transition: 'border-color .15s, box-shadow .15s',
+                    boxSizing: 'border-box',
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = ac.searchFocusBorder;
+                    e.target.style.boxShadow   = ac.searchFocusRing;
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = 'rgba(255,255,255,0.10)';
+                    e.target.style.boxShadow   = 'none';
+                  }}
+                />
+                {query && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuery('');
+                      setFocusIdx(0);
+                      searchRef.current?.focus();
+                    }}
+                    style={{
+                      position: 'absolute', right: 22,
+                      top: '50%', transform: 'translateY(-3px)',
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: '#6b7280', display: 'flex', alignItems: 'center',
+                    }}
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
 
-          {/* thin divider */}
-          <div style={{ height: 1, background: 'rgba(255,255,255,0.05)', margin: '0 12px' }} />
+              <div style={{ height: 1, background: 'rgba(255,255,255,0.05)', margin: '0 12px' }} />
+            </>
+          )}
 
           {/* ── options list ─────────────────────────────────
               max-h-60 + overflow-y-auto ensures ALL items render
@@ -360,7 +432,7 @@ export default function ModernSelect({
               /* ── scrollbar CSS variable passthrough ── */
               '--ms-scroll'      : ac.scrollColor,
               '--ms-scroll-hover': ac.scrollHoverColor,
-              padding: '4px 0',
+              padding: '8px 0',
               listStyle: 'none',
               margin: 0,
             }}
@@ -371,8 +443,10 @@ export default function ModernSelect({
                 alignItems: 'center', justifyContent: 'center',
                 padding: '32px 16px', gap: 8, color: '#6b7280',
               }}>
-                <Search size={20} style={{ opacity: 0.3 }} />
-                <span style={{ fontSize: 12 }}>No results for "{query}"</span>
+                {searchable ? <Search size={20} style={{ opacity: 0.3 }} /> : null}
+                <span style={{ fontSize: 12 }}>
+                  {searchable ? `No results for "${query}"` : 'No options available'}
+                </span>
               </li>
             ) : (
               filtered.map((opt, idx) => {
@@ -458,7 +532,7 @@ export default function ModernSelect({
             borderTop: '1px solid rgba(255,255,255,0.05)',
           }}>
             <span style={{ fontSize: 11, color: '#4b5563' }}>
-              {filtered.length} of {options.length} {options.length === 1 ? 'option' : 'options'}
+              {searchable ? `${filtered.length} of ${options.length}` : options.length} {options.length === 1 ? 'option' : 'options'}
             </span>
             {selected && (
               <button
@@ -498,6 +572,7 @@ export default function ModernSelect({
           type="button"
           aria-haspopup="listbox"
           aria-expanded={open}
+          onKeyDown={onTriggerKeyDown}
           onClick={toggleDropdown}
           className={[
             'w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-left cursor-pointer outline-none',
@@ -519,7 +594,7 @@ export default function ModernSelect({
             />
           ) : (
             <span className="w-9 h-9 rounded-lg shrink-0 flex items-center justify-center bg-white/[.04] border border-white/10 text-gray-500">
-              <Search size={15} />
+              {searchable ? <Search size={15} /> : <ChevronDown size={15} />}
             </span>
           )}
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { getResumes, getJobs, resumeBattle } from '../api/services';
 import DonutChart from '../components/DonutChart';
+import ModernSelect from '../components/ModernSelect';
 import ScoreBar from '../components/ScoreBar';
 
 const SCORE_BARS = [
@@ -67,19 +68,20 @@ export default function ResumeBattlePage() {
         {/* Job select */}
         <div className="card">
           <label className="label text-base font-semibold">1. Select Job Description *</label>
-          <select
-            className="input mt-2"
-            value={jobId}
-            onChange={(e) => setJobId(e.target.value)}
-            required
-          >
-            <option value="">— Choose a job —</option>
-            {jobs.map((j) => (
-              <option key={j._id} value={j._id}>
-                {j.jobTitle} {j.company ? `@ ${j.company}` : ''}
-              </option>
-            ))}
-          </select>
+          <div className="mt-2">
+            <ModernSelect
+              value={jobId}
+              onChange={setJobId}
+              placeholder="Choose a job"
+              accentColor="blue"
+              searchable
+              options={jobs.map((j) => ({
+                value: j._id,
+                label: j.jobTitle,
+                sub: j.company ? `@ ${j.company}` : undefined,
+              }))}
+            />
+          </div>
         </div>
 
         {/* Resume select */}

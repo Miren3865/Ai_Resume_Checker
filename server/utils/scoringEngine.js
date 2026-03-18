@@ -8,6 +8,46 @@ const DEFAULT_WEIGHTS = {
   formatting: 10,
 };
 
+const GENERIC_KEYWORD_NOISE = new Set([
+  'full', 'stack', 'development', 'developer', 'engineer', 'using', 'use', 'used',
+  'experience', 'experienced', 'candidate', 'candidates', 'looking', 'role', 'job',
+  'application', 'applications', 'building', 'build', 'developing', 'develop',
+  'solution', 'solutions', 'interface', 'interfaces', 'ability', 'skills', 'skill',
+  'knowledge', 'work', 'working', 'team', 'teams', 'strong', 'good', 'excellent',
+  'years', 'year', 'plus', 'junior', 'senior', 'level', 'position',
+]);
+
+const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const normalizeKeyword = (kw) =>
+  String(kw || '')
+    .toLowerCase()
+    .replace(/[()\[\]{}:,;!?"']/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const isMeaningfulKeyword = (kw) => {
+  const normalized = normalizeKeyword(kw);
+  if (!normalized || normalized.length < 3) return false;
+
+  const tokens = normalized.split(' ').filter(Boolean);
+  if (tokens.length === 1) {
+    return !GENERIC_KEYWORD_NOISE.has(tokens[0]);
+  }
+
+  // For phrases, ensure at least one significant token remains.
+  return tokens.some((t) => t.length > 2 && !GENERIC_KEYWORD_NOISE.has(t));
+};
+
+const containsKeyword = (text, keyword) => {
+  const normalizedKeyword = normalizeKeyword(keyword);
+  if (!normalizedKeyword) return false;
+
+  const escapedPhrase = escapeRegExp(normalizedKeyword).replace(/\s+/g, '\\s+');
+  const pattern = new RegExp(`(^|[^a-z0-9+#.])${escapedPhrase}([^a-z0-9+#.]|$)`, 'i');
+  return pattern.test(String(text || '').toLowerCase());
+};
+
 /**
  * Determine grade from numeric score
  */
@@ -56,25 +96,37 @@ const analyzeSkills = (resumeSkills, requiredSkills, preferredSkills) => {
  * Analyze keyword overlap between resume text and job keywords
  */
 const analyzeKeywords = (resumeText, jobKeywords, jobDescriptionText) => {
-  const lower = (resumeText || '').toLowerCase();
+  const explicitKeywords = (jobKeywords || [])
+    .map((kw) => String(kw || '').trim())
+    .filter(isMeaningfulKeyword);
 
-  // Combine explicit keywords with top words from job description
-  const autoKeywords = extractTopKeywords(jobDescriptionText, 20);
-  const allKeywords = [...new Set([...(jobKeywords || []), ...autoKeywords])];
+  // If job keywords are explicitly provided, trust them and do not add noisy auto keywords.
+  const autoKeywords = explicitKeywords.length > 0 ? [] : extractTopKeywords(jobDescriptionText, 20);
+  const candidates = [...explicitKeywords, ...autoKeywords].filter(isMeaningfulKeyword);
+
+  // De-duplicate by normalized form while preserving the first readable label.
+  const keywordMap = new Map();
+  candidates.forEach((kw) => {
+    const normalized = normalizeKeyword(kw);
+    if (normalized && !keywordMap.has(normalized)) {
+      keywordMap.set(normalized, kw);
+    }
+  });
 
   const matchedKeywords = [];
   const missingKeywords = [];
 
-  allKeywords.forEach((kw) => {
-    if (lower.includes(kw.toLowerCase())) {
-      matchedKeywords.push(kw);
+  keywordMap.forEach((label, normalized) => {
+    if (containsKeyword(resumeText, normalized)) {
+      matchedKeywords.push(label);
     } else {
-      missingKeywords.push(kw);
+      missingKeywords.push(label);
     }
   });
 
-  const keywordScore = allKeywords.length
-    ? Math.round((matchedKeywords.length / allKeywords.length) * 100)
+  const totalKeywords = keywordMap.size;
+  const keywordScore = totalKeywords
+    ? Math.round((matchedKeywords.length / totalKeywords) * 100)
     : 0;
 
   return { matchedKeywords, missingKeywords, keywordScore };
@@ -90,13 +142,14 @@ const extractTopKeywords = (text, n = 20) => {
     .toLowerCase()
     .replace(/[^\w\s]/g, ' ')
     .split(/\s+/)
-    .filter((w) => w.length > 3 && !STOP.has(w));
+    .filter((w) => w.length > 2 && !STOP.has(w) && !GENERIC_KEYWORD_NOISE.has(w));
   const freq = {};
   words.forEach((w) => { freq[w] = (freq[w] || 0) + 1; });
   return Object.entries(freq)
     .sort((a, b) => b[1] - a[1])
     .slice(0, n)
-    .map(([word]) => word);
+    .map(([word]) => word)
+    .filter(isMeaningfulKeyword);
 };
 
 /**

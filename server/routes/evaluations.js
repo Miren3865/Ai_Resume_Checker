@@ -5,6 +5,7 @@ const {
   getAllEvaluations,
   getEvaluationById,
   deleteEvaluation,
+  deleteAllEvaluations,
   resumeBattle,
   getDashboardStats,
 } = require('../controllers/evaluationController');
@@ -15,6 +16,7 @@ router.get('/stats/dashboard', protect, getDashboardStats);
 router.post('/battle', protect, resumeBattle);
 router.post('/', protect, createEvaluation);
 router.get('/', protect, getAllEvaluations);
+router.delete('/', protect, deleteAllEvaluations);
 router.get('/:id', protect, getEvaluationById);
 router.delete('/:id', protect, deleteEvaluation);
 

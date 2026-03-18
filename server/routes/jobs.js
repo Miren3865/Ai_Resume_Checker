@@ -7,6 +7,7 @@ const {
   getJobById,
   updateJob,
   deleteJob,
+  deleteAllJobs,
 } = require('../controllers/jobController');
 
 const router = express.Router();
@@ -24,6 +25,7 @@ const jobValidation = [
 
 router.post('/', protect, jobValidation, createJob);
 router.get('/', protect, getAllJobs);
+router.delete('/', protect, deleteAllJobs);
 router.get('/:id', protect, getJobById);
 router.put('/:id', protect, updateJob);
 router.delete('/:id', protect, deleteJob);

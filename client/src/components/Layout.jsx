@@ -1,5 +1,6 @@
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import CommandPalette from './CommandPalette';
 
 const navItems = [
   {
@@ -173,6 +174,7 @@ export default function Layout() {
   const { user, logoutUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const showCommandPalette = location.pathname === '/dashboard';
 
   const handleLogout = () => {
     logoutUser();
@@ -183,6 +185,8 @@ export default function Layout() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#05050f', position: 'relative' }}>
+      {showCommandPalette ? <CommandPalette navigate={navigate} /> : null}
+
       {/* Animated background orbs */}
       <div className="orb orb-purple" />
       <div className="orb orb-pink" />

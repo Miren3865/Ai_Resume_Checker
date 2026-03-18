@@ -18,7 +18,15 @@ export default function LoginPage() {
       loginUser(res.data.token, res.data.user);
       navigate('/dashboard');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Login failed');
+      const apiError = err.response?.data;
+      if (apiError?.code === 'EMAIL_NOT_REGISTERED') {
+        toast.error('This email is not registered. Please register first. Redirecting...');
+        setTimeout(() => {
+          navigate('/register', { state: { prefillEmail: form.email.trim() } });
+        }, 1400);
+      } else {
+        toast.error(apiError?.message || 'Login failed');
+      }
     } finally {
       setLoading(false);
     }

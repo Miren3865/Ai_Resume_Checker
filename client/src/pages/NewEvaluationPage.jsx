@@ -89,6 +89,7 @@ export default function NewEvaluationPage() {
                 onChange={setResumeId}
                 placeholder="Choose a candidate resume"
                 accentColor="purple"
+                searchable
                 options={resumes.map((r) => ({ value: r._id, label: r.candidateName }))}
               />
             </div>
@@ -103,6 +104,7 @@ export default function NewEvaluationPage() {
                 onChange={setJobId}
                 placeholder="Choose a job description"
                 accentColor="blue"
+                searchable
                 options={jobs.map((j) => ({
                   value: j._id,
                   label: j.jobTitle,
