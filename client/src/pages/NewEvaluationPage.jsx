@@ -16,10 +16,25 @@ export default function NewEvaluationPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    Promise.all([getResumes({ limit: 50 }), getJobs({ limit: 50 })]).then(([r, j]) => {
-      setResumes(r.data.data);
-      setJobs(j.data.data);
-    });
+    Promise.all([getResumes({ limit: 50 }), getJobs({ limit: 50 })])
+      .then(([r, j]) => {
+        const resumeList = r.data.data || [];
+        const jobList = j.data.data || [];
+
+        if (jobList.length === 0) {
+          toast.info('Please add a job description first to start an evaluation.', {
+            toastId: 'no-job-description-evaluation-redirect',
+          });
+          navigate('/jobs', { replace: true, state: { openCreateJob: true } });
+          return;
+        }
+
+        setResumes(resumeList);
+        setJobs(jobList);
+      })
+      .catch(() => {
+        toast.error('Failed to load required data for evaluation');
+      });
   }, []);
 
   const totalWeight = Object.values(weights).reduce((a, b) => a + b, 0);

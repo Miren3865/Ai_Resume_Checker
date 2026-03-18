@@ -5,7 +5,7 @@ import { register } from '../api/services';
 import { useAuth } from '../context/AuthContext';
 
 export default function RegisterPage() {
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'candidate' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '', role: 'candidate' });
   const [loading, setLoading] = useState(false);
   const { loginUser } = useAuth();
   const navigate = useNavigate();
@@ -13,6 +13,7 @@ export default function RegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (form.password.length < 8) { toast.error('Password must be at least 8 characters'); return; }
+    if (form.password !== form.confirmPassword) { toast.error('Passwords do not match'); return; }
     setLoading(true);
     try {
       const res = await register(form);
@@ -115,11 +116,10 @@ export default function RegisterPage() {
                 required autoComplete="new-password" />
             </div>
             <div>
-              <label className="label">I am a</label>
-              <select className="input" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
-                <option value="candidate">Candidate — looking for a job</option>
-                <option value="recruiter">Recruiter — hiring talent</option>
-              </select>
+              <label className="label">Confirm Password</label>
+              <input type="password" className="input" placeholder="Re-enter your password"
+                value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+                required autoComplete="new-password" />
             </div>
             <button type="submit" className="btn-primary" disabled={loading}
               style={{ width: '100%', justifyContent: 'center', padding: '12px 20px', fontSize: '14.5px', marginTop: '4px' }}>

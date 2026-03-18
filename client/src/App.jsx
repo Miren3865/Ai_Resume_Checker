@@ -6,6 +6,7 @@ import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import ResumesPage from './pages/ResumesPage';
 import JobsPage from './pages/JobsPage';
+import JobDetailPage from './pages/JobDetailPage';
 import EvaluationsPage from './pages/EvaluationsPage';
 import EvaluationDetailPage from './pages/EvaluationDetailPage';
 import ResumeBattlePage from './pages/ResumeBattlePage';
@@ -46,6 +47,7 @@ export default function App() {
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="resumes" element={<ResumesPage />} />
             <Route path="jobs" element={<JobsPage />} />
+            <Route path="jobs/:id" element={<JobDetailPage />} />
             <Route path="evaluations" element={<EvaluationsPage />} />
             <Route path="evaluations/new" element={<NewEvaluationPage />} />
             <Route path="evaluations/:id" element={<EvaluationDetailPage />} />

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { getJobs, createJob, updateJob, deleteJob, getJob } from '../api/services';
 import ConfirmModal from '../components/ConfirmModal';
@@ -17,6 +18,8 @@ const EMPTY_JOB = {
 };
 
 export default function JobsPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -24,7 +27,6 @@ export default function JobsPage() {
   const [form, setForm] = useState(EMPTY_JOB);
   const [editingId, setEditingId] = useState(null);
   const [search, setSearch] = useState('');
-  const [viewingJob, setViewingJob] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null); // { id, title }
 
   const fetchJobs = (q = '') => {
@@ -36,6 +38,16 @@ export default function JobsPage() {
   };
 
   useEffect(() => { fetchJobs(); }, []);
+
+  useEffect(() => {
+    if (!location.state?.openCreateJob) return;
+    setEditingId(null);
+    setForm(EMPTY_JOB);
+    setShowForm(true);
+
+    // Clear transient navigation state so refresh/back does not keep forcing the form open.
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.pathname, location.state, navigate]);
 
   const handleEdit = async (id) => {
     try {
@@ -61,13 +73,8 @@ export default function JobsPage() {
     }
   };
 
-  const handleView = async (id) => {
-    try {
-      const res = await getJob(id);
-      setViewingJob(res.data.data);
-    } catch {
-      toast.error('Failed to load job details');
-    }
+  const handleView = (id) => {
+    navigate(`/jobs/${id}`);
   };
 
   const handleCancel = () => {
@@ -285,133 +292,6 @@ export default function JobsPage() {
           </div>
         )}
       </div>
-
-      {viewingJob && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(2,2,18,0.85)', backdropFilter: 'blur(8px)' }}
-          onClick={() => setViewingJob(null)}
-        >
-          <div
-            className="w-full max-w-2xl max-h-[88vh] flex flex-col overflow-hidden rounded-2xl"
-            style={{
-              background: 'rgba(255,255,255,0.04)',
-              border: '1px solid rgba(139,92,246,0.3)',
-              boxShadow: '0 0 40px rgba(139,92,246,0.2), 0 25px 60px rgba(0,0,0,0.6)',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div
-              className="px-6 pt-6 pb-4 shrink-0"
-              style={{ borderBottom: '1px solid rgba(139,92,246,0.15)' }}
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <h2
-                    className="text-xl font-bold truncate"
-                    style={{ background: 'linear-gradient(90deg,#a78bfa,#ec4899)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}
-                  >
-                    {viewingJob.jobTitle}
-                  </h2>
-                  <div className="flex flex-wrap items-center gap-2 mt-1">
-                    {viewingJob.company && (
-                      <span className="text-sm font-medium" style={{ color: '#e2d9f3' }}>{viewingJob.company}</span>
-                    )}
-                    {viewingJob.company && viewingJob.location && (
-                      <span style={{ color: 'rgba(139,92,246,0.5)' }}>·</span>
-                    )}
-                    {viewingJob.location && (
-                      <span className="text-sm" style={{ color: '#a0a0c0' }}>{viewingJob.location}</span>
-                    )}
-                    {viewingJob.department && (
-                      <>
-                        <span style={{ color: 'rgba(139,92,246,0.5)' }}>·</span>
-                        <span className="text-sm" style={{ color: '#a0a0c0' }}>{viewingJob.department}</span>
-                      </>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    <span style={{ background: 'rgba(99,102,241,0.18)', border: '1px solid rgba(99,102,241,0.35)', color: '#a5b4fc', borderRadius: '999px', fontSize: '0.72rem', padding: '2px 10px' }}>
-                      {viewingJob.employmentType}
-                    </span>
-                    <span style={{ background: 'rgba(168,85,247,0.18)', border: '1px solid rgba(168,85,247,0.35)', color: '#d8b4fe', borderRadius: '999px', fontSize: '0.72rem', padding: '2px 10px' }}>
-                      {viewingJob.experienceLevel}
-                    </span>
-                    <span style={{ background: 'rgba(236,72,153,0.12)', border: '1px solid rgba(236,72,153,0.25)', color: '#f9a8d4', borderRadius: '999px', fontSize: '0.72rem', padding: '2px 10px' }}>
-                      {new Date(viewingJob.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setViewingJob(null)}
-                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#a0a0c0', borderRadius: '8px', padding: '6px 14px', fontSize: '0.8rem', cursor: 'pointer', shrink: 0 }}
-                >
-                  ✕ Close
-                </button>
-              </div>
-            </div>
-
-            {/* Scrollable body */}
-            <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
-
-              {/* Skills grid */}
-              {((viewingJob.requiredSkills?.length > 0) || (viewingJob.preferredSkills?.length > 0) || (viewingJob.keywords?.length > 0)) && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {viewingJob.requiredSkills?.length > 0 && (
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#7c6fcd' }}>Required Skills</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {viewingJob.requiredSkills.map((s) => (
-                          <span key={s} style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', color: '#c4b5fd', borderRadius: '6px', fontSize: '0.72rem', padding: '2px 8px' }}>{s}</span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {viewingJob.preferredSkills?.length > 0 && (
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#7c6fcd' }}>Preferred Skills</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {viewingJob.preferredSkills.map((s) => (
-                          <span key={s} style={{ background: 'rgba(168,85,247,0.12)', border: '1px solid rgba(168,85,247,0.28)', color: '#e9d5ff', borderRadius: '6px', fontSize: '0.72rem', padding: '2px 8px' }}>{s}</span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {viewingJob.keywords?.length > 0 && (
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#7c6fcd' }}>Keywords</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {viewingJob.keywords.map((k) => (
-                          <span key={k} style={{ background: 'rgba(236,72,153,0.1)', border: '1px solid rgba(236,72,153,0.25)', color: '#fbcfe8', borderRadius: '6px', fontSize: '0.72rem', padding: '2px 8px' }}>{k}</span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Divider */}
-              {viewingJob.jobDescriptionText && (
-                <div style={{ borderTop: '1px solid rgba(139,92,246,0.12)' }} />
-              )}
-
-              {/* Job description */}
-              {viewingJob.jobDescriptionText && (
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: '#7c6fcd' }}>Job Description</p>
-                  <p
-                    className="text-sm leading-relaxed whitespace-pre-wrap"
-                    style={{ color: '#c8c0e0' }}
-                  >
-                    {viewingJob.jobDescriptionText}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {confirmDelete && (
         <ConfirmModal

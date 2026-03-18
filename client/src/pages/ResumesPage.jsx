@@ -11,6 +11,7 @@ export default function ResumesPage() {
   const [candidateName, setCandidateName] = useState('');
   const [email, setEmail] = useState('');
   const [file, setFile] = useState(null);
+  const [dragging, setDragging] = useState(false);
   const fileRef = useRef();
 
   // PDF viewer state
@@ -106,6 +107,35 @@ export default function ResumesPage() {
     }
   };
 
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragging(false);
+    const droppedFile = e.dataTransfer.files[0];
+    if (droppedFile && (droppedFile.type === 'application/pdf' || droppedFile.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')) {
+      setFile(droppedFile);
+      // Reset file input and remove focus to close any open file picker dialogs
+      if (fileRef.current) {
+        fileRef.current.value = '';
+        fileRef.current.blur();
+      }
+    } else {
+      toast.error('Please drop a PDF or DOCX file');
+    }
+  };
+
   return (
     <div className="space-y-6 page-shell">
       <div>
@@ -142,8 +172,16 @@ export default function ResumesPage() {
           <div>
             <label className="label">Resume File (PDF or DOCX, max 10MB) *</label>
             <div
-              className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors cursor-pointer"
+              className={`border-2 border-dashed rounded-lg p-6 text-center transition-all cursor-pointer ${
+                dragging 
+                  ? 'border-blue-500 bg-blue-50' 
+                  : 'border-gray-300 hover:border-blue-400'
+              }`}
               onClick={() => fileRef.current?.click()}
+              onDragOver={handleDragOver}
+              onDragEnter={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
             >
               <input
                 ref={fileRef}
@@ -208,7 +246,7 @@ export default function ResumesPage() {
                 </div>
                 <div className="flex gap-2 items-center flex-wrap">
                   <span className="text-xs text-gray-400">
-                    {new Date(r.createdAt).toLocaleDateString()}
+                    {new Date(r.createdAt).toLocaleString()}
                   </span>
                   <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded uppercase">
                     {r.fileType}

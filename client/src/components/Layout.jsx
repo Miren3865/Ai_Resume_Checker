@@ -70,16 +70,6 @@ const navItems = [
 ];
 
 const systemItems = [
-  // {
-  //   to: '/rule-config',
-  //   label: 'Rule Config',
-  //   icon: (
-  //     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-  //       <circle cx="12" cy="12" r="3"/>
-  //       <path d="M19.07 4.93A10 10 0 0 0 4.93 19.07M4.93 4.93a10 10 0 0 0 0 14.14M12 2v2m0 16v2M2 12h2m16 0h2m-4.93-7.07-1.41 1.41M7.05 16.95l-1.41 1.41M7.05 7.05 5.64 5.64M16.95 16.95l1.41 1.41"/>
-  //     </svg>
-  //   ),
-  // },
   {
     to: '/profile',
     label: 'Profile',
