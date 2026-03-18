@@ -109,7 +109,7 @@ export default function CommandPalette({ navigate }) {
       >
         <Search size={13} />
         <span>Command</span>
-        <kbd className="rounded-md border border-white/15 bg-black/40 px-1.5 py-0.5 text-[10px] text-slate-400">Ctrl K</kbd>
+        <kbd className="rounded-md border border-white/15 bg-black/40 px-1.5 py-0.5 text-[10px] text-slate-400">Ctrl + K</kbd>
       </button>
 
       {open && (
