@@ -4,23 +4,25 @@ const PRIORITY_CONFIG = {
   LOW:    { badge: 'badge-low',    glow: 'rgba(16,185,129,.2)', icon: '↓' },
 };
 
+import { motion } from 'framer-motion';
+
 export default function RecommendationCard({ rec }) {
   const cfg = PRIORITY_CONFIG[rec.priority] || PRIORITY_CONFIG.LOW;
 
   return (
-    <div style={{
-      border: '1px solid rgba(255,255,255,.07)',
-      borderRadius: '12px', padding: '14px 16px',
-      background: 'rgba(255,255,255,.025)',
-      transition: 'all .18s ease',
-    }}
-      onMouseEnter={e => {
-        e.currentTarget.style.borderColor = 'rgba(168,85,247,.3)';
-        e.currentTarget.style.background = 'rgba(168,85,247,.06)';
+    <motion.div
+      whileHover={{
+        scale: 1.035,
+        boxShadow: `0 0 0 2px ${cfg.glow}, 0 0 18px ${cfg.glow}`,
+        transition: { duration: 0.18 },
       }}
-      onMouseLeave={e => {
-        e.currentTarget.style.borderColor = 'rgba(255,255,255,.07)';
-        e.currentTarget.style.background = 'rgba(255,255,255,.025)';
+      whileTap={{ scale: 0.98 }}
+      style={{
+        border: '1px solid rgba(255,255,255,.07)',
+        borderRadius: '12px', padding: '14px 16px',
+        background: 'rgba(255,255,255,.025)',
+        transition: 'all .18s ease',
+        cursor: 'pointer',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
@@ -45,6 +47,6 @@ export default function RecommendationCard({ rec }) {
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

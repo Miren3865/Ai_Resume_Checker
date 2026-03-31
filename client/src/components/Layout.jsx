@@ -2,6 +2,7 @@ import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import ConfirmModal from './ConfirmModal';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const navItems = [
   {
@@ -200,28 +201,59 @@ export default function Layout() {
   const initials = (user?.name || '??').slice(0, 2).toUpperCase();
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#05050f', position: 'relative' }}>
+    <motion.div
+      style={{ display: 'flex', minHeight: '100vh', background: '#05050f', position: 'relative', overflow: 'hidden' }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+    >
       {/* Animated background orbs */}
-      <div className="orb orb-purple" />
-      <div className="orb orb-pink" />
-      <div className="orb orb-cyan" />
+      <motion.div
+        className="orb orb-purple"
+        initial={{ scale: 0.7, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1, x: [0, 20, -10, 0], y: [0, 10, -10, 0] }}
+        transition={{ duration: 12, repeat: Infinity, repeatType: 'mirror', ease: 'easeInOut' }}
+        style={{
+          position: 'absolute', left: '-120px', top: '-80px', width: 320, height: 320, borderRadius: '50%',
+          background: 'radial-gradient(circle at 60% 40%, #a855f7 0%, #6366f1 100%)', filter: 'blur(60px)', opacity: 0.32, zIndex: 0
+        }}
+      />
+      {/* Removed bottom right glowing blob */}
+      <motion.div
+        className="orb orb-cyan"
+        initial={{ scale: 0.7, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1, x: [0, 15, -15, 0], y: [0, 10, -10, 0] }}
+        transition={{ duration: 16, repeat: Infinity, repeatType: 'mirror', ease: 'easeInOut', delay: 4 }}
+        style={{
+          position: 'absolute', left: '40%', top: '-100px', width: 180, height: 180, borderRadius: '50%',
+          background: 'radial-gradient(circle at 60% 40%, #06b6d4 0%, #818cf8 100%)', filter: 'blur(40px)', opacity: 0.18, zIndex: 0
+        }}
+      />
 
       {/* ── Sidebar ── */}
-      <aside className="sidebar-enter" style={{
-        width: '252px',
-        flexShrink: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'sticky',
-        top: 0,
-        height: '100vh',
-        zIndex: 20,
-        background: 'rgba(4, 4, 18, 0.75)',
-        backdropFilter: 'blur(36px)',
-        WebkitBackdropFilter: 'blur(36px)',
-        borderRight: '1px solid rgba(255,255,255,0.065)',
-        boxShadow: '4px 0 30px rgba(0,0,0,.4)',
-      }}>
+      <motion.aside
+        className="sidebar-enter"
+        initial={{ x: -40, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+        style={{
+          width: '252px',
+          flexShrink: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          height: '100vh',
+          zIndex: 20,
+          background: 'rgba(4, 4, 18, 0.75)',
+          backdropFilter: 'blur(36px)',
+          WebkitBackdropFilter: 'blur(36px)',
+          borderRight: '1px solid rgba(255,255,255,0.065)',
+          boxShadow: '4px 0 30px rgba(0,0,0,.4)',
+        }}
+      >
 
         {/* ── Logo ── */}
         <div style={{ padding: '22px 20px 18px', borderBottom: '1px solid rgba(255,255,255,.055)' }}>
@@ -354,27 +386,44 @@ export default function Layout() {
             Sign Out
           </button>
         </div>
-      </aside>
+      </motion.aside>
 
       {/* ── Main content ── */}
-      <main className="main-enter" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', position: 'relative', zIndex: 1, minHeight: '100vh' }}>
+      <motion.main
+        className="main-enter"
+        initial={{ x: 40, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ duration: 0.72, ease: [0.22, 1, 0.36, 1] }}
+        style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', position: 'relative', zIndex: 1, minHeight: '100vh', marginLeft: '252px' }}
+      >
         <div style={{ maxWidth: '1300px', margin: '0 auto', padding: '36px 32px' }}>
-          <div key={location.pathname} className="route-shell">
-            <Outlet />
-          </div>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={location.pathname}
+              className="route-shell"
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 18 }}
+              transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <Outlet />
+            </motion.div>
+          </AnimatePresence>
         </div>
-      </main>
+      </motion.main>
 
-      {showLogoutConfirm && (
-        <ConfirmModal
-          message="Sign out of your account?"
-          subMessage="You will need to log in again to continue."
-          confirmLabel="Sign Out"
-          iconType="logout"
-          onConfirm={confirmLogout}
-          onCancel={() => setShowLogoutConfirm(false)}
-        />
-      )}
-    </div>
+      <AnimatePresence>
+        {showLogoutConfirm && (
+          <ConfirmModal
+            message="Sign out of your account?"
+            subMessage="You will need to log in again to continue."
+            confirmLabel="Sign Out"
+            iconType="logout"
+            onConfirm={confirmLogout}
+            onCancel={() => setShowLogoutConfirm(false)}
+          />
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }

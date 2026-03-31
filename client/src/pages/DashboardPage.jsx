@@ -4,10 +4,52 @@ import { getDashboardStats } from '../api/services';
 import DonutChart from '../components/DonutChart';
 
 const STAT_CONFIG = [
-  { key: 'totalResumes',     label: 'Resumes',        icon: '◎', gradient: 'linear-gradient(135deg,#6366f1,#818cf8)' },
-  { key: 'totalJobs',        label: 'Job Descriptions',icon: '◉', gradient: 'linear-gradient(135deg,#a855f7,#c084fc)' },
-  { key: 'totalEvaluations', label: 'Evaluations',     icon: '◇', gradient: 'linear-gradient(135deg,#06b6d4,#67e8f9)' },
-  { key: 'averageScore',     label: 'Avg Match Score', icon: '◈', gradient: 'linear-gradient(135deg,#10b981,#6ee7b7)', suffix: '%' },
+  {
+    key: 'totalResumes',
+    label: 'Resumes',
+    icon: (
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="4" y="3" width="16" height="18" rx="3"/>
+        <path d="M9 7h6M9 11h6M9 15h2"/>
+      </svg>
+    ),
+    gradient: 'linear-gradient(135deg,#6366f1,#818cf8)'
+  },
+  {
+    key: 'totalJobs',
+    label: 'Job Descriptions',
+    icon: (
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="7" width="20" height="13" rx="3"/>
+        <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+      </svg>
+    ),
+    gradient: 'linear-gradient(135deg,#a855f7,#c084fc)'
+  },
+  {
+    key: 'totalEvaluations',
+    label: 'Evaluations',
+    icon: (
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="4" y="4" width="16" height="16" rx="3"/>
+        <path d="M9 12l2 2l4-4"/>
+      </svg>
+    ),
+    gradient: 'linear-gradient(135deg,#06b6d4,#67e8f9)'
+  },
+  {
+    key: 'averageScore',
+    label: 'Avg Match Score',
+    icon: (
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 20a8 8 0 1 1 8-8"/>
+        <path d="M12 4v4"/>
+        <path d="M12 12l3 3"/>
+      </svg>
+    ),
+    gradient: 'linear-gradient(135deg,#10b981,#6ee7b7)',
+    suffix: '%'
+  },
 ];
 
 const GRADE_COLOR = {

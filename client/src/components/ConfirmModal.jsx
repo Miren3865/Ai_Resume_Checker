@@ -1,5 +1,6 @@
 import { createPortal } from 'react-dom';
 import { useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function ConfirmModal({
   message,
@@ -22,20 +23,29 @@ export default function ConfirmModal({
   }, [onCancel]);
 
   const modalContent = (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(2,2,18,0.85)', backdropFilter: 'blur(8px)' }}
-      onClick={onCancel}
-    >
-      <div
-        className="w-full max-w-sm rounded-2xl overflow-hidden flex flex-col"
-        style={{
-          background: 'rgba(255,255,255,0.04)',
-          border: '1px solid rgba(239,68,68,0.35)',
-          boxShadow: '0 0 40px rgba(239,68,68,0.15), 0 25px 60px rgba(0,0,0,0.6)',
-        }}
-        onClick={(e) => e.stopPropagation()}
+    <AnimatePresence>
+      <motion.div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        style={{ background: 'rgba(2,2,18,0.85)', backdropFilter: 'blur(8px)' }}
+        onClick={onCancel}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.22 }}
       >
+        <motion.div
+          className="w-full max-w-sm rounded-2xl overflow-hidden flex flex-col"
+          style={{
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(239,68,68,0.35)',
+            boxShadow: '0 0 40px rgba(239,68,68,0.15), 0 25px 60px rgba(0,0,0,0.6)',
+          }}
+          onClick={(e) => e.stopPropagation()}
+          initial={{ scale: 0.92, opacity: 0, y: 30 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.92, opacity: 0, y: 30 }}
+          transition={{ duration: 0.28, type: 'spring', bounce: 0.22 }}
+        >
         {/* Top accent bar */}
         <div style={{ height: '3px', background: 'linear-gradient(90deg,#ef4444,#ec4899)' }} />
 
@@ -104,8 +114,9 @@ export default function ConfirmModal({
             </button>
           </div>
         </div>
-      </div>
-    </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 
   if (typeof document === 'undefined') {
