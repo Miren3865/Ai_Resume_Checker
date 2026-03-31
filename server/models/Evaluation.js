@@ -57,6 +57,65 @@ const evaluationSchema = new mongoose.Schema(
     missingSkills: [String],
     matchedKeywords: [String],
     missingKeywords: [String],
+    matchedSkillDetails: [
+      {
+        skill: String,
+        confidence: { type: String, enum: ['high', 'medium', 'low'] },
+        matchType: { type: String, enum: ['explicit', 'inferred', 'missing'] },
+        reason: String,
+        notes: [String],
+      },
+    ],
+    missingSkillDetails: [
+      {
+        skill: String,
+        confidence: { type: String, enum: ['high', 'medium', 'low'] },
+        matchType: { type: String, enum: ['explicit', 'inferred', 'missing'] },
+        reason: String,
+        notes: [String],
+      },
+    ],
+    matchedKeywordDetails: [
+      {
+        keyword: String,
+        confidence: { type: String, enum: ['high', 'medium', 'low'] },
+        matchType: { type: String, enum: ['explicit', 'inferred', 'missing'] },
+        reason: String,
+      },
+    ],
+    missingKeywordDetails: [
+      {
+        keyword: String,
+        confidence: { type: String, enum: ['high', 'medium', 'low'] },
+        matchType: { type: String, enum: ['explicit', 'inferred', 'missing'] },
+        reason: String,
+      },
+    ],
+    advancedMatch: {
+      matched_skills: [String],
+      missing_skills: [String],
+      matched_keywords: [String],
+      missing_keywords: [String],
+      confidence: {
+        skills: [
+          {
+            name: String,
+            confidence: { type: String, enum: ['high', 'medium', 'low'] },
+            matchType: { type: String, enum: ['explicit', 'inferred', 'missing'] },
+            reason: String,
+            notes: [String],
+          },
+        ],
+        keywords: [
+          {
+            name: String,
+            confidence: { type: String, enum: ['high', 'medium', 'low'] },
+            matchType: { type: String, enum: ['explicit', 'inferred', 'missing'] },
+            reason: String,
+          },
+        ],
+      },
+    },
     sectionAnalysis: {
       contact: {
         status: { type: String, enum: ['Strong', 'Moderate', 'Weak', 'Missing'] },

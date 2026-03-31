@@ -19,12 +19,114 @@ const GENERIC_KEYWORD_NOISE = new Set([
 
 const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+const CONFIDENCE_RANK = { low: 1, medium: 2, high: 3 };
+
+const SKILL_ALIASES = {
+  javascript: ['javascript', 'ecmascript', 'es6', 'es6+', 'js'],
+  reactjs: ['react', 'react.js', 'reactjs', 'react 18', 'react 17', 'react 16'],
+  nodejs: ['node', 'node.js', 'nodejs', 'node 16', 'node 18', 'node 20'],
+  expressjs: ['express', 'express.js', 'expressjs'],
+  restapi: ['rest api', 'rest apis', 'restful api', 'restful apis', 'api development', 'backend api'],
+  mongodb: ['mongodb', 'mongo db', 'mongo'],
+  typescript: ['typescript', 'ts'],
+  docker: ['docker', 'containerization', 'containers'],
+  cicd: ['ci/cd', 'ci cd', 'continuous integration', 'continuous delivery', 'continuous deployment', 'pipeline'],
+  aws: ['aws', 'amazon web services'],
+  azure: ['azure', 'microsoft azure'],
+  fullstack: ['full stack', 'full-stack', 'mern stack', 'mean stack'],
+  backend: ['backend', 'back end', 'server-side', 'server side'],
+  agile: ['agile', 'scrum', 'kanban'],
+};
+
+const ROLE_KEYWORD_EXPANSIONS = {
+  reactjs: ['React Developer'],
+  nodejs: ['Node.js Developer'],
+  fullstack: ['Full Stack Developer'],
+  restapi: ['Backend Developer'],
+  backend: ['Backend Developer'],
+};
+
+const MERN_IMPLIED = ['javascript', 'reactjs', 'nodejs', 'expressjs', 'restapi', 'mongodb', 'fullstack'];
+
 const normalizeKeyword = (kw) =>
   String(kw || '')
     .toLowerCase()
     .replace(/[()\[\]{}:,;!?"']/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+
+const parseVersionMeta = (text) => {
+  const raw = String(text || '').toLowerCase();
+
+  const reactMatch = raw.match(/react\s*\.?js?\s*(\d{1,2})/i);
+  if (reactMatch) return { major: Number(reactMatch[1]) };
+
+  const nodeMatch = raw.match(/node\s*\.?js?\s*(\d{1,2})/i);
+  if (nodeMatch) return { major: Number(nodeMatch[1]) };
+
+  const jsMatch = raw.match(/(?:javascript|ecmascript|es)\s*(\d{1,4})\+?/i);
+  if (jsMatch) return { major: Number(jsMatch[1]) };
+
+  return { major: null };
+};
+
+const normalizeSkillLabel = (s) =>
+  String(s || '')
+    .toLowerCase()
+    .replace(/[()\[\]{}:,;!?"]/g, ' ')
+    .replace(/\b(version|v)\s*\d+(?:\.\d+)?\b/g, ' ')
+    .replace(/\b(es\d+\+?)\b/g, ' javascript ')
+    .replace(/\b\d+(?:\.\d+)?\+?\b/g, ' ')
+    .replace(/[._-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const canonicalizeSkill = (skill) => {
+  const normalized = normalizeSkillLabel(skill);
+  if (!normalized) return '';
+
+  const compact = normalized.replace(/\s+/g, '');
+  for (const [canonical, aliases] of Object.entries(SKILL_ALIASES)) {
+    for (const alias of aliases) {
+      const aliasNorm = normalizeSkillLabel(alias);
+      if (!aliasNorm) continue;
+      if (normalized === aliasNorm || compact === aliasNorm.replace(/\s+/g, '')) {
+        return canonical;
+      }
+      const phrasePattern = new RegExp(`(^|[^a-z0-9+#.])${escapeRegExp(aliasNorm).replace(/\s+/g, '\\s+')}([^a-z0-9+#.]|$)`, 'i');
+      if (phrasePattern.test(` ${normalized} `)) {
+        return canonical;
+      }
+    }
+  }
+
+  return compact.replace(/js$/, '').trim();
+};
+
+const labelFromCanonical = (canonical, fallback) => {
+  const labels = {
+    javascript: 'JavaScript',
+    reactjs: 'React.js',
+    nodejs: 'Node.js',
+    expressjs: 'Express.js',
+    restapi: 'REST APIs',
+    mongodb: 'MongoDB',
+    typescript: 'TypeScript',
+    docker: 'Docker',
+    cicd: 'CI/CD',
+    aws: 'AWS',
+    azure: 'Azure',
+    fullstack: 'Full Stack',
+    backend: 'Backend Development',
+    agile: 'Agile',
+  };
+  return labels[canonical] || fallback || canonical;
+};
+
+const pickHigherConfidence = (prev, next) => {
+  if (!prev) return next;
+  return CONFIDENCE_RANK[next] > CONFIDENCE_RANK[prev] ? next : prev;
+};
 
 const isMeaningfulKeyword = (kw) => {
   const normalized = normalizeKeyword(kw);
@@ -62,40 +164,243 @@ const getGrade = (score) => {
 /**
  * Normalize a skill string for comparison
  */
-const normSkill = (s) =>
-  s.toLowerCase().replace(/[.\s-]/g, '').replace(/js$/, '').trim();
+const normSkill = (s) => canonicalizeSkill(s);
+
+const collectResumeEvidence = (resumeSkills, resumeText, parsedSections) => {
+  const textParts = [
+    String(resumeText || ''),
+    String(parsedSections?.summary || ''),
+    String(parsedSections?.experience || ''),
+    String(parsedSections?.projects || ''),
+    String(parsedSections?.skills || ''),
+  ];
+  const fullText = textParts.join('\n').toLowerCase();
+
+  const evidence = new Map();
+
+  const upsertEvidence = (canonical, payload) => {
+    if (!canonical) return;
+    const current = evidence.get(canonical) || {
+      explicit: false,
+      inferred: false,
+      confidence: 'low',
+      reason: '',
+      versions: [],
+    };
+    const next = {
+      ...current,
+      ...payload,
+      confidence: pickHigherConfidence(current.confidence, payload.confidence || current.confidence),
+      versions: [...new Set([...(current.versions || []), ...((payload.versions || []).filter((v) => Number.isFinite(v) && v > 0))])],
+    };
+    if (!next.reason && current.reason) next.reason = current.reason;
+    evidence.set(canonical, next);
+  };
+
+  (resumeSkills || []).forEach((skill) => {
+    const canonical = canonicalizeSkill(skill);
+    const version = parseVersionMeta(skill).major;
+    upsertEvidence(canonical, {
+      explicit: true,
+      confidence: 'high',
+      reason: `Explicitly listed in resume skills as "${skill}"`,
+      versions: version ? [version] : [],
+    });
+  });
+
+  Object.entries(SKILL_ALIASES).forEach(([canonical, aliases]) => {
+    const foundAlias = aliases.find((alias) => containsKeyword(fullText, alias));
+    if (foundAlias) {
+      const version = parseVersionMeta(fullText).major;
+      upsertEvidence(canonical, {
+        explicit: true,
+        confidence: 'high',
+        reason: `Mentioned in resume content (${foundAlias})`,
+        versions: version ? [version] : [],
+      });
+    }
+  });
+
+  let mernOrFullStack = false;
+  if (/\bmern\b|mern\s+stack/i.test(fullText)) {
+    MERN_IMPLIED.forEach((canonical) => {
+      upsertEvidence(canonical, {
+        inferred: true,
+        confidence: 'high',
+        reason: 'Inferred from MERN stack project/experience context',
+      });
+    });
+    mernOrFullStack = true;
+  }
+  if (/full\s*[- ]?stack/i.test(fullText)) {
+    ['fullstack', 'backend', 'restapi'].forEach((canonical) => {
+      upsertEvidence(canonical, {
+        inferred: true,
+        confidence: 'medium',
+        reason: 'Inferred from full-stack project/experience context',
+      });
+    });
+    mernOrFullStack = true;
+  }
+
+  // If MERN/full-stack context, infer these as well
+  if (mernOrFullStack) {
+    [
+      { canonical: 'responsivedesign', labels: ['Responsive Design', 'Responsive Web Design'] },
+      { canonical: 'tailwindcss', labels: ['Tailwind CSS'] },
+      { canonical: 'frontenddevelopment', labels: ['Frontend Development'] },
+      { canonical: 'apiintegration', labels: ['API Integration'] },
+    ].forEach(({ canonical, labels }) => {
+      upsertEvidence(canonical, {
+        inferred: true,
+        confidence: 'medium',
+        reason: 'Inferred from MERN/full-stack context',
+      });
+      // Also allow matching by label aliases in keywords
+      labels.forEach((label) => {
+        upsertEvidence(label.toLowerCase().replace(/\s+/g, ''), {
+          inferred: true,
+          confidence: 'medium',
+          reason: 'Inferred from MERN/full-stack context',
+        });
+      });
+    });
+  }
+
+  if (/(backend|server\s*side|api\s*development)/i.test(fullText)) {
+    ['backend', 'restapi'].forEach((canonical) => {
+      upsertEvidence(canonical, {
+        inferred: true,
+        confidence: 'medium',
+        reason: 'Inferred from backend development context',
+      });
+    });
+  }
+
+  if (containsKeyword(fullText, 'react') && !evidence.has('javascript')) {
+    upsertEvidence('javascript', {
+      inferred: true,
+      confidence: 'medium',
+      reason: 'Inferred because React usage implies JavaScript',
+    });
+  }
+
+  if (containsKeyword(fullText, 'node') || containsKeyword(fullText, 'node.js')) {
+    ['backend', 'restapi'].forEach((canonical) => {
+      upsertEvidence(canonical, {
+        inferred: true,
+        confidence: 'medium',
+        reason: 'Inferred because Node.js usage implies backend/API development',
+      });
+    });
+  }
+
+  if (/(deploy|deployed|deployment|pipeline|github actions|jenkins|gitlab ci|vercel|netlify|aws|azure)/i.test(fullText)) {
+    upsertEvidence('cicd', {
+      inferred: true,
+      confidence: 'low',
+      reason: 'Inferred from deployment/devops context',
+    });
+  }
+
+  return evidence;
+};
 
 /**
  * Compare resume skills with job required/preferred skills
  */
-const analyzeSkills = (resumeSkills, requiredSkills, preferredSkills) => {
-  const allJobSkills = [...requiredSkills, ...preferredSkills];
-  const normResume = (resumeSkills || []).map(normSkill);
+const analyzeSkills = (resumeSkills, requiredSkills, preferredSkills, resumeText, parsedSections) => {
+  const allJobSkills = [...(requiredSkills || []), ...(preferredSkills || [])];
+  const evidence = collectResumeEvidence(resumeSkills, resumeText, parsedSections);
   const normRequired = (requiredSkills || []).map(normSkill);
 
   const matchedSkills = [];
   const missingSkills = [];
+  const matchedSkillDetails = [];
+  const missingSkillDetails = [];
+
+  const uniqueMatched = new Set();
+  const uniqueMissing = new Set();
+
+  const versionMatchConfidence = (jobVersion, resumeVersion) => {
+    if (!jobVersion) return 'high';
+    if (!resumeVersion) return 'medium';
+    if (resumeVersion >= jobVersion) return 'high';
+    return 'medium';
+  };
+
+  const versionNotes = (jobVersion, resumeVersion) => {
+    if (!jobVersion) return [];
+    if (!resumeVersion) return ['Job requires specific version; resume version not explicitly stated'];
+    if (resumeVersion < jobVersion) return [`Version gap: required ${jobVersion}, resume indicates ${resumeVersion}`];
+    return [];
+  };
 
   allJobSkills.forEach((skill) => {
-    if (normResume.includes(normSkill(skill))) {
-      matchedSkills.push(skill);
+    const canonical = normSkill(skill);
+    const requirementVersion = parseVersionMeta(skill).major;
+    const found = evidence.get(canonical);
+
+    if (found && (found.explicit || found.inferred)) {
+      const resumeVersion = (found.versions || []).length > 0
+        ? Math.max(...found.versions)
+        : null;
+      const baseConfidence = found.explicit ? 'high' : found.confidence;
+      let confidence = baseConfidence;
+      if (requirementVersion && (!resumeVersion || resumeVersion < requirementVersion)) {
+        confidence = CONFIDENCE_RANK[confidence] > CONFIDENCE_RANK.medium ? 'medium' : confidence;
+      }
+
+      if (!uniqueMatched.has(skill)) {
+        matchedSkills.push(skill);
+        uniqueMatched.add(skill);
+      }
+
+      matchedSkillDetails.push({
+        skill,
+        confidence,
+        matchType: found.explicit ? 'explicit' : 'inferred',
+        reason: found.reason,
+        notes: versionNotes(requirementVersion, resumeVersion),
+      });
     } else {
-      missingSkills.push(skill);
+      if (!uniqueMissing.has(skill)) {
+        missingSkills.push(skill);
+        uniqueMissing.add(skill);
+      }
+      missingSkillDetails.push({
+        skill,
+        confidence: 'low',
+        matchType: 'missing',
+        reason: 'No explicit or contextual evidence found in resume',
+        notes: [],
+      });
     }
   });
 
   // Score based only on required skills
-  const requiredMatched = normRequired.filter((rs) => normResume.includes(rs)).length;
+  const requiredMatched = (requiredSkills || []).filter((rs) => {
+    const canonical = normSkill(rs);
+    const found = evidence.get(canonical);
+    return Boolean(found && (found.explicit || found.inferred));
+  }).length;
   const requiredTotal = normRequired.length || 1;
   const skillsCoverage = Math.round((requiredMatched / requiredTotal) * 100);
 
-  return { matchedSkills, missingSkills, skillsCoverage };
+  return {
+    matchedSkills,
+    missingSkills,
+    matchedSkillDetails,
+    missingSkillDetails,
+    skillsCoverage,
+    evidence,
+  };
 };
 
 /**
  * Analyze keyword overlap between resume text and job keywords
  */
-const analyzeKeywords = (resumeText, jobKeywords, jobDescriptionText) => {
+const analyzeKeywords = (resumeText, jobKeywords, jobDescriptionText, skillAnalysis) => {
   const explicitKeywords = (jobKeywords || [])
     .map((kw) => String(kw || '').trim())
     .filter(isMeaningfulKeyword);
@@ -115,12 +420,58 @@ const analyzeKeywords = (resumeText, jobKeywords, jobDescriptionText) => {
 
   const matchedKeywords = [];
   const missingKeywords = [];
+  const matchedKeywordDetails = [];
+  const missingKeywordDetails = [];
+
+  const skillEvidence = skillAnalysis?.evidence || new Map();
+  const derivedKeywordSet = new Set();
+  skillEvidence.forEach((details, canonical) => {
+    if (!details || (!details.explicit && !details.inferred)) return;
+    (ROLE_KEYWORD_EXPANSIONS[canonical] || []).forEach((kw) => derivedKeywordSet.add(kw));
+  });
+
+  if ((skillEvidence.get('fullstack')?.explicit || skillEvidence.get('fullstack')?.inferred) && !derivedKeywordSet.has('Full Stack Developer')) {
+    derivedKeywordSet.add('Full Stack Developer');
+  }
+
+  if ((skillEvidence.get('restapi')?.explicit || skillEvidence.get('restapi')?.inferred || skillEvidence.get('backend')?.explicit || skillEvidence.get('backend')?.inferred) && !derivedKeywordSet.has('Backend Developer')) {
+    derivedKeywordSet.add('Backend Developer');
+  }
+
+  const normalizeKeywordLoose = (kw) => normalizeKeyword(kw).replace(/\bdeveloper\b/g, '').replace(/\s+/g, ' ').trim();
+  const normalizedDerived = [...derivedKeywordSet].map((k) => ({ raw: k, normalized: normalizeKeywordLoose(k) }));
 
   keywordMap.forEach((label, normalized) => {
-    if (containsKeyword(resumeText, normalized)) {
+    const directMatch = containsKeyword(resumeText, normalized);
+    const looseJob = normalizeKeywordLoose(label);
+    const derivedMatch = normalizedDerived.find((d) => d.normalized && d.normalized === looseJob);
+    const canonicalKeyword = canonicalizeSkill(label);
+    const inferredBySkill = Boolean(
+      canonicalKeyword &&
+      skillEvidence.get(canonicalKeyword) &&
+      (skillEvidence.get(canonicalKeyword).explicit || skillEvidence.get(canonicalKeyword).inferred)
+    );
+
+    if (directMatch || derivedMatch || inferredBySkill) {
       matchedKeywords.push(label);
+      matchedKeywordDetails.push({
+        keyword: label,
+        confidence: directMatch ? 'high' : inferredBySkill ? (skillEvidence.get(canonicalKeyword)?.confidence || 'medium') : 'medium',
+        matchType: directMatch ? 'explicit' : 'inferred',
+        reason: directMatch
+          ? `Keyword found in resume text: "${label}"`
+          : inferredBySkill
+            ? `Inferred from matched skill evidence (${labelFromCanonical(canonicalKeyword, label)})`
+            : `Derived from matched skill context (${derivedMatch?.raw || 'related skill'})`,
+      });
     } else {
       missingKeywords.push(label);
+      missingKeywordDetails.push({
+        keyword: label,
+        confidence: 'low',
+        matchType: 'missing',
+        reason: 'No explicit or implied evidence found in resume',
+      });
     }
   });
 
@@ -129,7 +480,13 @@ const analyzeKeywords = (resumeText, jobKeywords, jobDescriptionText) => {
     ? Math.round((matchedKeywords.length / totalKeywords) * 100)
     : 0;
 
-  return { matchedKeywords, missingKeywords, keywordScore };
+  return {
+    matchedKeywords,
+    missingKeywords,
+    matchedKeywordDetails,
+    missingKeywordDetails,
+    keywordScore,
+  };
 };
 
 /**
@@ -321,6 +678,7 @@ const analyzeSections = (parsedSections, contactInfo) => {
     feedback: projIssues,
   };
 
+
   // Certifications
   const certText = parsedSections.certifications || '';
   analysis.certifications = {
@@ -329,12 +687,12 @@ const analyzeSections = (parsedSections, contactInfo) => {
     feedback: certText ? [] : ['Add relevant certifications to boost credibility'],
   };
 
-  // Achievements
-  const achText = parsedSections.achievements || '';
+  // Achievements (treat certifications/courses as equivalent)
+  const achText = parsedSections.achievements || certText;
   analysis.achievements = {
     status: achText ? 'Strong' : 'Missing',
     score: achText ? 80 : 0,
-    feedback: achText ? [] : ['Include notable achievements or awards'],
+    feedback: achText ? [] : ['Include notable achievements, certifications, or awards'],
   };
 
   return analysis;
@@ -425,8 +783,19 @@ const calculateMatchScore = (
   } = jobData;
 
   // 1. Skills analysis
-  const { matchedSkills, missingSkills, skillsCoverage } = analyzeSkills(
-    resumeSkills, requiredSkills, preferredSkills
+  const {
+    matchedSkills,
+    missingSkills,
+    matchedSkillDetails,
+    missingSkillDetails,
+    skillsCoverage,
+    evidence,
+  } = analyzeSkills(
+    resumeSkills,
+    requiredSkills,
+    preferredSkills,
+    resumeText,
+    parsedSections
   );
 
   // 2. Experience alignment
@@ -440,8 +809,17 @@ const calculateMatchScore = (
   );
 
   // 4. Keyword analysis
-  const { matchedKeywords, missingKeywords, keywordScore } = analyzeKeywords(
-    resumeText, keywords, jobDescriptionText
+  const {
+    matchedKeywords,
+    missingKeywords,
+    matchedKeywordDetails,
+    missingKeywordDetails,
+    keywordScore,
+  } = analyzeKeywords(
+    resumeText,
+    keywords,
+    jobDescriptionText,
+    { evidence }
   );
 
   // 5. Formatting analysis
@@ -488,6 +866,31 @@ const calculateMatchScore = (
     missingSkills,
     matchedKeywords,
     missingKeywords,
+    matchedSkillDetails,
+    missingSkillDetails,
+    matchedKeywordDetails,
+    missingKeywordDetails,
+    advancedMatch: {
+      matched_skills: matchedSkills,
+      missing_skills: missingSkills,
+      matched_keywords: matchedKeywords,
+      missing_keywords: missingKeywords,
+      confidence: {
+        skills: matchedSkillDetails.map((item) => ({
+          name: item.skill,
+          confidence: item.confidence,
+          matchType: item.matchType,
+          reason: item.reason,
+          notes: item.notes,
+        })),
+        keywords: matchedKeywordDetails.map((item) => ({
+          name: item.keyword,
+          confidence: item.confidence,
+          matchType: item.matchType,
+          reason: item.reason,
+        })),
+      },
+    },
     sectionAnalysis,
     recommendations,
   };

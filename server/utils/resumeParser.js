@@ -9,7 +9,7 @@ const SECTION_PATTERNS = {
   education: /\b(education|academic|qualification|degree|university|college|school)\b/i,
   skills: /\b(skills|technical skills|core competencies|technologies|expertise|proficiencies)\b/i,
   projects: /\b(projects|project work|personal projects|academic projects|key projects)\b/i,
-  certifications: /\b(certifications|certificates|licenses|credentials|accreditations)\b/i,
+  certifications: /\b(certifications|certificates|licenses|credentials|accreditations|courses|course|training)\b/i,
   achievements: /\b(achievements|awards|honors|accomplishments|recognition)\b/i,
 };
 
