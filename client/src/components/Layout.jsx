@@ -198,7 +198,15 @@ export default function Layout() {
     navigate('/login');
   };
 
-  const initials = (user?.name || '??').slice(0, 2).toUpperCase();
+  let initials = '??';
+  if (user?.name) {
+    const parts = user.name.trim().split(' ');
+    if (parts.length === 1) {
+      initials = parts[0].slice(0, 2).toUpperCase();
+    } else {
+      initials = (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+  }
 
   return (
     <motion.div

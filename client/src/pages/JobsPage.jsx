@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { toast } from 'react-toastify';
 import { getJobs, createJob, updateJob, deleteJob, deleteAllJobs, getJob } from '../api/services';
 import ConfirmModal from '../components/ConfirmModal';
@@ -16,6 +17,8 @@ const EMPTY_JOB = {
   keywordsText: '',
   jobDescriptionText: '',
 };
+
+const SIDEBAR_WIDTH = 252;
 
 export default function JobsPage() {
   const [jobs, setJobs] = useState([]);
@@ -38,6 +41,28 @@ export default function JobsPage() {
   };
 
   useEffect(() => { fetchJobs(); }, []);
+
+  useEffect(() => {
+    if (!viewingJob) return;
+
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') setViewingJob(null);
+    };
+
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [viewingJob]);
+
+  useEffect(() => {
+    if (!viewingJob) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [viewingJob]);
 
   const handleEdit = async (id) => {
     try {
@@ -322,104 +347,114 @@ export default function JobsPage() {
         )}
       </div>
 
-      {viewingJob && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(2,2,18,0.85)', backdropFilter: 'blur(8px)' }}
-          onClick={() => setViewingJob(null)}
-        >
+      {viewingJob && createPortal(
+        <div className="fixed inset-0 z-[1000] p-0 animate-fadeIn">
           <div
-            className="w-full max-w-2xl max-h-[88vh] flex flex-col overflow-hidden rounded-2xl"
+            className="absolute top-0 right-0 bottom-0"
             style={{
-              background: 'rgba(255,255,255,0.04)',
-              border: '1px solid rgba(139,92,246,0.3)',
-              boxShadow: '0 0 40px rgba(139,92,246,0.2), 0 25px 60px rgba(0,0,0,0.6)',
+              left: `${SIDEBAR_WIDTH}px`,
+              background: 'rgba(5,5,15,0.42)',
+              backdropFilter: 'blur(18px) saturate(1.3)',
+              WebkitBackdropFilter: 'blur(18px) saturate(1.3)',
+            }}
+            onClick={() => setViewingJob(null)}
+          />
+          <div
+            className="absolute top-0 bottom-0"
+            style={{
+              left: `${SIDEBAR_WIDTH}px`,
+              right: 0,
+              background: 'radial-gradient(ellipse at 60% 40%, rgba(139,92,246,0.16) 0%, rgba(10,10,30,0.88) 82%)',
+            }}
+          />
+          <div
+            className="absolute flex flex-col overflow-hidden shadow-2xl border border-violet-400/30 animate-slideUp"
+            style={{
+              background: 'linear-gradient(120deg, rgba(34,34,60,0.97) 80%, rgba(139,92,246,0.10) 100%)',
+              top: '1cm',
+              right: '1cm',
+              bottom: '1cm',
+              left: `calc(${SIDEBAR_WIDTH}px + 1cm)`,
+              borderRadius: '24px',
+              overflow: 'hidden',
+              zIndex: 1,
             }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div
-              className="px-6 pt-6 pb-4 shrink-0"
-              style={{ borderBottom: '1px solid rgba(139,92,246,0.15)' }}
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <h2
-                    className="text-xl font-bold truncate"
-                    style={{ background: 'linear-gradient(90deg,#a78bfa,#ec4899)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}
-                  >
-                    {viewingJob.jobTitle}
-                  </h2>
-                  <div className="flex flex-wrap items-center gap-2 mt-1">
-                    {viewingJob.company && (
-                      <span className="text-sm font-medium" style={{ color: '#e2d9f3' }}>{viewingJob.company}</span>
-                    )}
-                    {viewingJob.company && viewingJob.location && (
+            <div className="px-10 pt-10 pb-6 shrink-0 flex items-start justify-between gap-4 border-b border-violet-400/15">
+              <div className="flex-1 min-w-0">
+                <h2 className="text-3xl font-extrabold tracking-tight mb-1 bg-gradient-to-r from-violet-300 via-pink-400 to-fuchsia-400 bg-clip-text text-transparent drop-shadow-lg animate-gradient">
+                  {viewingJob.jobTitle}
+                </h2>
+                <div className="flex flex-wrap items-center gap-2 mt-1">
+                  {viewingJob.company && (
+                    <span className="text-lg font-semibold" style={{ color: '#e2d9f3' }}>{viewingJob.company}</span>
+                  )}
+                  {viewingJob.company && viewingJob.location && (
+                    <span style={{ color: 'rgba(139,92,246,0.5)' }}>·</span>
+                  )}
+                  {viewingJob.location && (
+                    <span className="text-lg" style={{ color: '#a0a0c0' }}>{viewingJob.location}</span>
+                  )}
+                  {viewingJob.department && (
+                    <>
                       <span style={{ color: 'rgba(139,92,246,0.5)' }}>·</span>
-                    )}
-                    {viewingJob.location && (
-                      <span className="text-sm" style={{ color: '#a0a0c0' }}>{viewingJob.location}</span>
-                    )}
-                    {viewingJob.department && (
-                      <>
-                        <span style={{ color: 'rgba(139,92,246,0.5)' }}>·</span>
-                        <span className="text-sm" style={{ color: '#a0a0c0' }}>{viewingJob.department}</span>
-                      </>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    <span style={{ background: 'rgba(99,102,241,0.18)', border: '1px solid rgba(99,102,241,0.35)', color: '#a5b4fc', borderRadius: '999px', fontSize: '0.72rem', padding: '2px 10px' }}>
-                      {viewingJob.employmentType}
-                    </span>
-                    <span style={{ background: 'rgba(168,85,247,0.18)', border: '1px solid rgba(168,85,247,0.35)', color: '#d8b4fe', borderRadius: '999px', fontSize: '0.72rem', padding: '2px 10px' }}>
-                      {viewingJob.experienceLevel}
-                    </span>
-                    <span style={{ background: 'rgba(236,72,153,0.12)', border: '1px solid rgba(236,72,153,0.25)', color: '#f9a8d4', borderRadius: '999px', fontSize: '0.72rem', padding: '2px 10px' }}>
-                      {new Date(viewingJob.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
-                    </span>
-                  </div>
+                      <span className="text-lg" style={{ color: '#a0a0c0' }}>{viewingJob.department}</span>
+                    </>
+                  )}
                 </div>
-                <button
-                  onClick={() => setViewingJob(null)}
-                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#a0a0c0', borderRadius: '8px', padding: '6px 14px', fontSize: '0.8rem', cursor: 'pointer', shrink: 0 }}
-                >
-                  ✕ Close
-                </button>
+                <div className="flex flex-wrap gap-2 mt-4">
+                  <span style={{ background: 'rgba(99,102,241,0.18)', border: '1px solid rgba(99,102,241,0.35)', color: '#a5b4fc', borderRadius: '999px', fontSize: '0.9rem', padding: '4px 16px' }}>
+                    {viewingJob.employmentType}
+                  </span>
+                  <span style={{ background: 'rgba(168,85,247,0.18)', border: '1px solid rgba(168,85,247,0.35)', color: '#d8b4fe', borderRadius: '999px', fontSize: '0.9rem', padding: '4px 16px' }}>
+                    {viewingJob.experienceLevel}
+                  </span>
+                  <span style={{ background: 'rgba(236,72,153,0.12)', border: '1px solid rgba(236,72,153,0.25)', color: '#f9a8d4', borderRadius: '999px', fontSize: '0.9rem', padding: '4px 16px' }}>
+                    {new Date(viewingJob.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                  </span>
+                </div>
               </div>
+              <button
+                onClick={() => setViewingJob(null)}
+                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', color: '#a0a0c0', borderRadius: '10px', padding: '10px 22px', fontSize: '1.1rem', cursor: 'pointer', fontWeight: 700, boxShadow: '0 2px 12px 0 rgba(139,92,246,0.10)' }}
+                className="hover:bg-pink-500/20 hover:text-pink-200 transition-colors duration-200"
+              >
+                ✕ Close
+              </button>
             </div>
 
             {/* Scrollable body */}
-            <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
-
-              {/* Skills grid */}
+            <div className="overflow-y-auto flex-1 px-10 py-8 space-y-8 custom-scrollbar">
               {((viewingJob.requiredSkills?.length > 0) || (viewingJob.preferredSkills?.length > 0) || (viewingJob.keywords?.length > 0)) && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
                   {viewingJob.requiredSkills?.length > 0 && (
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#7c6fcd' }}>Required Skills</p>
-                      <div className="flex flex-wrap gap-1.5">
+                      <p className="text-xs font-bold uppercase tracking-widest mb-3 text-violet-300">Required Skills</p>
+                      <div className="flex flex-wrap gap-2">
                         {viewingJob.requiredSkills.map((s) => (
-                          <span key={s} style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', color: '#c4b5fd', borderRadius: '6px', fontSize: '0.72rem', padding: '2px 8px' }}>{s}</span>
+                          <span key={s} style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', color: '#c4b5fd', borderRadius: '8px', fontSize: '0.85rem', padding: '4px 12px' }}>{s}</span>
                         ))}
                       </div>
                     </div>
                   )}
                   {viewingJob.preferredSkills?.length > 0 && (
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#7c6fcd' }}>Preferred Skills</p>
-                      <div className="flex flex-wrap gap-1.5">
+                      <p className="text-xs font-bold uppercase tracking-widest mb-3 text-pink-200">Preferred Skills</p>
+                      <div className="flex flex-wrap gap-2">
                         {viewingJob.preferredSkills.map((s) => (
-                          <span key={s} style={{ background: 'rgba(168,85,247,0.12)', border: '1px solid rgba(168,85,247,0.28)', color: '#e9d5ff', borderRadius: '6px', fontSize: '0.72rem', padding: '2px 8px' }}>{s}</span>
+                          <span key={s} style={{ background: 'rgba(168,85,247,0.12)', border: '1px solid rgba(168,85,247,0.28)', color: '#e9d5ff', borderRadius: '8px', fontSize: '0.85rem', padding: '4px 12px' }}>{s}</span>
                         ))}
                       </div>
                     </div>
                   )}
                   {viewingJob.keywords?.length > 0 && (
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#7c6fcd' }}>Keywords</p>
-                      <div className="flex flex-wrap gap-1.5">
+                      <p className="text-xs font-bold uppercase tracking-widest mb-3 text-fuchsia-200">Keywords</p>
+                      <div className="flex flex-wrap gap-2">
                         {viewingJob.keywords.map((k) => (
-                          <span key={k} style={{ background: 'rgba(236,72,153,0.1)', border: '1px solid rgba(236,72,153,0.25)', color: '#fbcfe8', borderRadius: '6px', fontSize: '0.72rem', padding: '2px 8px' }}>{k}</span>
+                          <span key={k} style={{ background: 'rgba(236,72,153,0.1)', border: '1px solid rgba(236,72,153,0.25)', color: '#fbcfe8', borderRadius: '8px', fontSize: '0.85rem', padding: '4px 12px' }}>{k}</span>
                         ))}
                       </div>
                     </div>
@@ -427,26 +462,33 @@ export default function JobsPage() {
                 </div>
               )}
 
-              {/* Divider */}
               {viewingJob.jobDescriptionText && (
-                <div style={{ borderTop: '1px solid rgba(139,92,246,0.12)' }} />
+                <div className="border-t border-violet-400/10 my-2" />
               )}
 
-              {/* Job description */}
               {viewingJob.jobDescriptionText && (
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: '#7c6fcd' }}>Job Description</p>
-                  <p
-                    className="text-sm leading-relaxed whitespace-pre-wrap"
-                    style={{ color: '#c8c0e0' }}
-                  >
+                  <p className="text-xs font-bold uppercase tracking-widest mb-4 text-violet-200">Job Description</p>
+                  <p className="text-lg leading-relaxed whitespace-pre-wrap text-violet-50 drop-shadow-md animate-fadeIn" style={{ letterSpacing: '0.01em' }}>
                     {viewingJob.jobDescriptionText}
                   </p>
                 </div>
               )}
             </div>
           </div>
-        </div>
+
+          <style>{`
+            @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+            .animate-fadeIn { animation: fadeIn 0.7s cubic-bezier(.4,0,.2,1); }
+            @keyframes slideUp { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+            .animate-slideUp { animation: slideUp 0.7s cubic-bezier(.4,0,.2,1); }
+            .animate-gradient { background-size: 200% 200%; animation: gradientMove 3s ease-in-out infinite alternate; }
+            @keyframes gradientMove { 0% { background-position: 0% 50%; } 100% { background-position: 100% 50%; } }
+            .custom-scrollbar::-webkit-scrollbar { width: 10px; background: rgba(139,92,246,0.08); }
+            .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(139,92,246,0.18); border-radius: 8px; }
+          `}</style>
+        </div>,
+        document.body
       )}
 
       {confirmDelete && (
